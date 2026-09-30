@@ -1,0 +1,33 @@
+--- a/window-copy.c
++++ b/window-copy.c
+@@ -2410,6 +2410,14 @@
+ 	const char			*arg1 = args_string(cs->wargs, 1);
+ 	int				 set_paste = !args_has(cs->wargs, 'P');
+ 	int				 set_clip = !args_has(cs->wargs, 'C');
++	char				*selection;
++	size_t				 selection_size;
++	int				 direct_clip;
++
++	/* Selection release must survive pending redraws, on the selecting client. */
++	direct_clip = set_clip && c != NULL && s != NULL &&
++	    options_get_number(s->options, "scroll-on-input") &&
++	    options_get_number(global_options, "set-clipboard") != 0;
+ 
+ 	if (arg1 != NULL)
+ 		prefix = format_single(NULL, arg1, c, s, wl, wp);
+@@ -2417,7 +2425,14 @@
+ 	if (s != NULL && arg0 != NULL && *arg0 != '\0')
+ 		command = format_single(NULL, arg0, c, s, wl, wp);
+ 	window_copy_copy_pipe(wme, s, prefix, command,
+-	    set_paste, set_clip);
++	    set_paste, set_clip && !direct_clip);
++	if (direct_clip) {
++		selection = window_copy_get_selection(wme, &selection_size);
++		if (selection != NULL) {
++			tty_set_selection(&c->tty, "c", selection, selection_size);
++			free(selection);
++		}
++	}
+ 	free(command);
+ 
+ 	free(prefix);

@@ -1,0 +1,426 @@
+{
+  "product": "tmux-simple",
+  "version": "0.1.0",
+  "upstream": "tmux 3.7c",
+  "upstream_sha256": "7c60cae9a0e25288e2e24750aafc9e8800fc7fd4555e447e1b29ee4201cfb3bf",
+  "transport": "unmodified /usr/bin/mosh-client and /usr/bin/mosh-server 1.4.0",
+  "requirements": [
+    {
+      "id": "INPUT-1",
+      "contract": "Typing, controls, Unicode and paste leave remote history and arrive unchanged",
+      "test": "tests/test_interaction.py::test_typing_and_paste_leave_history_without_losing_input",
+      "red": "artifacts/typing-stock-red-3.txt"
+    },
+    {
+      "id": "COPY-1",
+      "contract": "Selection release copies without moving the viewport; OSC 52 survives redraw",
+      "test": "tests/test_interaction.py::test_selection_release_keeps_position_and_copies",
+      "red": "artifacts/interaction-second.txt"
+    },
+    {
+      "id": "MOUSE-1",
+      "contract": "Mouse-aware applications get ordinary unshifted header clicks and wheel input",
+      "test": "tests/test_interaction.py::test_plain_application_header_click_and_wheel_pass_through"
+    },
+    {
+      "id": "SCROLL-1",
+      "contract": "Wheel down exits at the bottom, while focus changes do not",
+      "test": "tests/test_interaction.py::test_wheel_down_returns_to_live_view_and_focus_does_not"
+    },
+    {
+      "id": "SCROLL-2",
+      "contract": "Shift+Page keys browse but ordinary arrows go to the application",
+      "test": "tests/test_interaction.py::test_shift_page_browses_but_ordinary_arrows_are_input"
+    },
+    {
+      "id": "READONLY-1",
+      "contract": "Read-only viewer input cannot exit history or reach the pane",
+      "test": "tests/test_interaction.py::test_readonly_viewer_cannot_exit_history_or_deliver_input"
+    },
+    {
+      "id": "MOSH-1",
+      "contract": "Stock Mosh can browse old history, copy, type, resize, survive simulated loss and reconnect while desktop stays attached",
+      "test": "tests/test_interaction.py::test_stock_mosh_history_copy_typing_resize_and_reattach"
+    },
+    {
+      "id": "CLI-1",
+      "contract": "Help, version, list, attach, existing-only, detach and confirmed kill; invalid invocations preserve sessions",
+      "test_file": "tests/test_cli.py"
+    },
+    {
+      "id": "ISOLATE-1",
+      "contract": "Foreign servers and conflicting installation paths are not modified",
+      "test_file": "tests/test_cli.py"
+    },
+    {
+      "id": "COPY-2",
+      "contract": "Desktop helper only uses an explicitly available display",
+      "test": "tests/test_cli.py::test_clipboard_helper_only_uses_available_explicit_display"
+    },
+    {
+      "id": "ORACLE-1",
+      "contract": "Independent terminal oracles observe the actual alternate-screen viewport",
+      "test": "tests/test_cli.py::test_oracle_reads_actual_alternate_viewport"
+    },
+    {
+      "id": "LINK-1",
+      "contract": "OSC 8 file targets survive drawing, history and reattachment to a server with the old terminal-feature configuration",
+      "test": "tests/test_hyperlinks.py::test_osc8_file_links_survive_rendering_and_reattach",
+      "red": "artifacts/hyperlinks-osc8-red-2.txt"
+    },
+    {
+      "id": "LINK-2",
+      "contract": "Real XFCE widget Ctrl-click opens explicit and detected file paths; Ctrl-Shift-click requests parent directory selection using the pane CWD",
+      "test": "tests/test_hyperlinks.py::test_xfce_ctrl_click_opens_and_ctrl_shift_click_reveals",
+      "red": "artifacts/hyperlinks-xfce-red.txt"
+    },
+    {
+      "id": "LINK-3",
+      "contract": "Pane metadata lookup preserves the app allowlist and bounds unresponsive-server queries without killing the original client or server",
+      "test": "tests/test_hyperlinks.py::test_xfce_ctrl_click_opens_and_ctrl_shift_click_reveals"
+    },
+    {
+      "id": "CONFIG-1",
+      "contract": "New servers prefer the XDG tmux-simple config, fall back to the project symlink, and never read vanilla config; invalid user configs fail visibly",
+      "test": "tests/test_config.py::test_launcher_uses_configured_file_and_ignores_vanilla_config",
+      "red": "artifacts/config-migration-red.xml"
+    },
+    {
+      "id": "CONFIG-2",
+      "contract": "Existing servers neither reload nor require the config when adding or reattaching sessions",
+      "test": "tests/test_config.py::test_existing_server_does_not_reload_or_require_the_moved_config"
+    },
+    {
+      "id": "CONFIG-3",
+      "contract": "Bootstrap installs a canonical config symlink idempotently, refuses conflicts, and retires only this repository's old vanilla config link",
+      "test": "tests/test_config.py::test_config_installer_retires_only_managed_legacy_links"
+    },
+    {
+      "id": "CLI-2",
+      "contract": "new-session/new [-A] -s NAME supports native create-or-attach syntax, preserves existing programs and viewers, rejects duplicate names without -A, and preserves native program argument semantics",
+      "test_file": "tests/test_compat_cli.py",
+      "red": "artifacts/legacy-cli-red.xml"
+    },
+    {
+      "id": "CLIENTS-1",
+      "contract": "clients and clients --json list session, transport, reachability, peer, geometry and sizing participation without creating a server; existing servers automatically gain the sizing monitor",
+      "test_file": "tests/test_mosh_sizing.py",
+      "red": "artifacts/mosh-sizing-red.xml"
+    },
+    {
+      "id": "SIZING-1",
+      "contract": "Explicitly unreachable Mosh clients release their size constraint; reconnect restores it without ending either viewer or the application or replacing the configured latest/smallest policy",
+      "test": "tests/test_mosh_sizing.py::test_offline_phone_releases_size_and_reconnect_restores_it"
+    },
+    {
+      "id": "SIZING-2",
+      "contract": "Unknown or ambiguous login state never creates an exclusion; manual flags survive and only recorded automatic flags are restored, including after crashes",
+      "test_file": "tests/test_mosh_sizing.py"
+    },
+    {
+      "id": "SIZING-3",
+      "contract": "Automatic Mosh detection or ordinary clients/list starts one bounded-polling helper per private server; unchanged polls do not redraw and server replacement, unsafe lock paths and PID reuse cannot redirect updates",
+      "test_file": "tests/test_mosh_sizing.py"
+    },
+    {
+      "id": "DEFAULT-SIZING-1",
+      "contract": "Ordinary clients, clients --json and list activate singleton sizing without an opt-in flag; existing attachments, applications and geometry survive; startup failures warn but inventory still works; --manage-sizing remains compatible",
+      "test_file": "tests/test_mosh_sizing.py",
+      "red": "artifacts/default-sizing-red.xml"
+    },
+    {
+      "id": "SIZING-4",
+      "contract": "A portrait phone taller than the desktop uses its own full height when active; keyboard close and history browsing restore full height; desktop/phone input switches the shared size without restarting programs, directly and over stock Mosh",
+      "test_file": "tests/test_sizing.py",
+      "red": "artifacts/active-sizing-red.xml"
+    }
+  ],
+  "results": {
+    "status": "passed automated release verification; actual device UI untested",
+    "release": "build/clipboard-package-check.egzgu9/build/release.KUKGeW/tmux",
+    "release_sha256": "9981a503518daeca00c6c9b9fd7d43b8a4a0ee40ae2d324e1fc182d35cbfd8ae",
+    "pytest": {
+      "passed": 95,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 100.85,
+      "report": "artifacts/clipboard-commit-release.xml",
+      "log": "artifacts/clipboard-commit-release.txt"
+    },
+    "static": [
+      "shellcheck scripts/*.sh",
+      "shfmt -d -i 4 scripts/*.sh",
+      "bash -n scripts/build.sh",
+      "ruff check --isolated --select E4,E7,E9,F,I tmux-simple tmux_clients.py tests",
+      "ruff format --check tmux-simple tmux_clients.py tests"
+    ],
+    "compiler": "7 const-qualifier warnings in unmodified upstream files; no errors",
+    "retained_development_failures": [
+      "Initial build required autoreconf after changing configure.ac; preserved build/release.sPzm9a/compile.log",
+      "First baseline had an invalid unused style option; removed and rerun (typing-stock-red.txt)",
+      "Old harness targeted the session rather than an explicit pane and assumed main-screen VTE adjustment (interaction-first.txt)",
+      "Terminfo override omitted an expected string parameter; removed after explicit-selector clipboard patch (clipboard-context.txt)"
+    ],
+    "hyperlinks": {
+      "status": "passed isolated release and real-widget verification; live desktop untouched",
+      "xfce_source": "/home/lewis/repos/xfce4-terminal",
+      "xfce_executable": "/home/lewis/repos/xfce4-terminal/build/terminal/xfce4-terminal",
+      "artifact_manifest": "artifacts/hyperlinks-installed.sha256",
+      "isolation": "Private HOME/XDG, Xvfb, D-Bus and tmux sockets; file handlers record requests instead of opening desktop applications",
+      "retained_development_failures": [
+        "Initial VTE oracle selected Gdk 4; pinned Gdk 3 (hyperlinks-osc8-red.txt)",
+        "Initial desktop recorder assumed GIO always delivers URIs; normalize legitimate native paths (hyperlinks-green-first.txt)",
+        "New C test feature macros had to precede system headers after formatting (hyperlinks-xfce-build-final.txt)",
+        "Existing key test inherited TERM=dumb; pin xterm-256color in test definition (hyperlinks-xfce-suite.txt)",
+        "Updated VTE getter test used a wrong argument count; corrected against installed headers (hyperlinks-xfce-build-verified.txt)"
+      ],
+      "focused": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 25.98,
+        "report": "artifacts/hyperlinks-focused-final.xml",
+        "log": "artifacts/hyperlinks-focused-final.txt"
+      },
+      "xfce_regression": {
+        "passed_suites": [
+          "terminal-regex",
+          "terminal-keys",
+          "terminal-mouse"
+        ],
+        "failed_suites": 0,
+        "log": "artifacts/hyperlinks-xfce-suite-final.txt"
+      },
+      "activation": "Open a new rebuilt XFCE4 Terminal window and reattach; no running tmux server restart required",
+      "static": [
+        "ruff check --isolated --select E4,E7,E9,F,I tmux-simple tests",
+        "ruff format --check tmux-simple tests",
+        "clang-format --dry-run --Werror on new C files",
+        "git diff --check",
+        "shellcheck and shfmt on unchanged helper scripts"
+      ]
+    },
+    "previous_pytest": {
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 60.69,
+      "report": "artifacts/release-final.xml",
+      "log": "artifacts/release-final.txt"
+    },
+    "prior_pytest_runs": [
+      {
+        "passed": 39,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 90.57,
+        "report": "artifacts/hyperlinks-release-final.xml",
+        "log": "artifacts/hyperlinks-release-final.txt"
+      },
+      {
+        "passed": 58,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 90.01,
+        "report": "artifacts/config-migration-release.xml",
+        "log": "artifacts/config-migration-release.txt"
+      },
+      {
+        "passed": 70,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 92.90,
+        "report": "artifacts/legacy-cli-release.xml",
+        "log": "artifacts/legacy-cli-release.txt"
+      },
+      {
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 98.29,
+        "report": "artifacts/mosh-sizing-release-verified.xml",
+        "log": "artifacts/mosh-sizing-release-verified.txt"
+      },
+      {
+        "passed": 92,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 96.31,
+        "report": "artifacts/default-sizing-release.xml",
+        "log": "artifacts/default-sizing-release.txt"
+      },
+      {
+        "passed": 95,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 103.86,
+        "report": "artifacts/active-sizing-release.xml",
+        "log": "artifacts/active-sizing-release.txt"
+      }
+    ],
+    "config_migration": {
+      "status": "installed; isolated regressions passed; no live sessions reloaded or restarted",
+      "canonical": "/home/lewis/Dev/config/tmux-simple/tmux.conf",
+      "legacy_archive": "/home/lewis/Dev/config/legacy/tmux/tmux.conf",
+      "user_link": "/home/lewis/.config/tmux-simple/tmux.conf",
+      "project_link": "tmux-simple.conf -> ../config/tmux-simple/tmux.conf",
+      "installer": "/home/lewis/Dev/config/tmux-simple/link.sh",
+      "artifact_manifest": "artifacts/config-migration-installed.sha256",
+      "content_preservation": "cmp confirmed both moved config files match their pre-migration copies byte-for-byte",
+      "isolated_cli": {
+        "passed": 33,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 6.76,
+        "report": "artifacts/config-migration-cli.xml",
+        "log": "artifacts/config-migration-cli.txt"
+      },
+      "static": [
+        "shellcheck on the new config helper passed",
+        "shfmt and bash -n passed for helper and bootstrap",
+        "bootstrap has 43 pre-existing ShellCheck findings; JSON matches the saved baseline exactly",
+        "ruff checks and formatting passed",
+        "config repository git diff --check passed"
+      ],
+      "not_run": [
+        "full config bootstrap (would change unrelated system state)",
+        "live interactive tests"
+      ]
+    },
+    "legacy_cli": {
+      "status": "installed through existing tmux symlink; isolated verification passed",
+      "syntax": "tmux new-session -A -s diet",
+      "alias": "tmux new -As diet",
+      "artifact_manifest": "artifacts/legacy-cli-installed.sha256",
+      "focused": {
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 2.77,
+        "report": "artifacts/legacy-cli-compat.xml",
+        "log": "artifacts/legacy-cli-compat.txt"
+      },
+      "static": [
+        "ruff check --isolated --select E4,E7,E9,F,I tmux-simple tests",
+        "ruff format --check tmux-simple tests"
+      ],
+      "live_sessions": "not attached, restarted, reconfigured, or tested"
+    },
+    "mosh_sizing": {
+      "status": "installed through existing tmux symlink; isolated verification passed; no live monitor activated",
+      "artifact_manifest": "artifacts/mosh-sizing-installed.sha256",
+      "commands": [
+        "tmux clients",
+        "tmux clients --json",
+        "tmux list"
+      ],
+      "activation": "Default on Mosh attachments and on clients/list for an existing server; --manage-sizing is retained only for compatibility",
+      "scope": "Real release tmux clients and geometry with synthetic process/login metadata; real GNU who against private binary utmp fixture; existing loopback Mosh and emulator/widget suite also passed",
+      "focused": {
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 6.93,
+        "report": "artifacts/mosh-sizing-lifecycle.xml",
+        "log": "artifacts/mosh-sizing-lifecycle.txt"
+      },
+      "static": [
+        "ruff check --isolated --select E4,E7,E9,F,I tmux-simple tmux_clients.py tests",
+        "ruff format --check tmux-simple tmux_clients.py tests",
+        "Installed ~/.local/bin/tmux --help resolves new module and command",
+        "Authoritative config is byte-for-byte unchanged"
+      ],
+      "polling": "2 seconds with Mosh clients, 5 seconds without; no who invocation without Mosh; unchanged polls do not write options or force redraw",
+      "retained_development_failures": [
+        "Missing clients command demonstrated in mosh-sizing-red.xml",
+        "Focused assertion initially queried a local rather than inherited window-size option; corrected oracle in mosh-sizing-focused.xml",
+        "CLI test double-closed a terminal during teardown; fixed fixture ownership in mosh-sizing-cli.xml (61 tests passed, one teardown error)",
+        "Initial unrestricted collection found the backed-up conftest.py; renamed backup to conftest.py.txt and used explicit tests directory in mosh-sizing-release.xml"
+      ],
+      "live_sessions": "not attached, restarted, reconfigured, inspected, or used for tests; actual phone reconnection remains a manual check"
+    },
+    "default_sizing": {
+      "status": "installed through existing tmux symlink; opt-in no longer required; live servers untouched",
+      "artifact_manifest": "artifacts/default-sizing-installed.sha256",
+      "focused": {
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 8.74,
+        "report": "artifacts/default-sizing-focused.xml",
+        "log": "artifacts/default-sizing-focused.txt"
+      },
+      "red": {
+        "failed": 4,
+        "deselected": 18,
+        "report": "artifacts/default-sizing-red.xml",
+        "log": "artifacts/default-sizing-red.txt",
+        "reason": "Prior launcher did not activate the monitor for clients, clients --json or list, nor report default startup failure"
+      },
+      "static": [
+        "Ruff check and format --check passed for launcher, client module and tests",
+        "Installed tmux clients --help reports compatibility-only flag",
+        "Configuration file is byte-for-byte unchanged"
+      ],
+      "scope": "Isolated HOME, private servers, synthetic metadata and existing loopback/emulator tests; no real phone or live tmux session tested",
+      "compatibility": "--manage-sizing remains accepted; missing-server, help, version, invalid-command and foreign-server protections retained"
+    },
+    "active_sizing": {
+      "status": "latest policy saved in authoritative config and applied to the verified existing server after user selected follow active device",
+      "artifact_manifest": "artifacts/active-sizing-installed.sha256",
+      "root_cause": "smallest combined phone width (86) with shorter desktop heights (54/58/65) although phone client and PTY both reported 95 rows; offline monitor was not running",
+      "focused": {
+        "passed": 25,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 13.81,
+        "report": "artifacts/active-sizing-focused.xml",
+        "log": "artifacts/active-sizing-focused.txt"
+      },
+      "red": {
+        "failed": 2,
+        "seconds": 14.78,
+        "report": "artifacts/active-sizing-red.xml",
+        "log": "artifacts/active-sizing-red.txt",
+        "scope": "Actual stale-height failure reproduced on private direct and stock-Mosh attachments before changing policy"
+      },
+      "live_application": "Only global window-size changed from smallest to latest; original server PID/start ticks verified, all six client identities and three pane process identities unchanged; diet pane expanded from 86x54 to 86x95",
+      "remaining": "Other viewers become size owner on their next input or resize; inactive views may be padded/cropped. Android gestures were not driven, and no live test input was injected",
+      "static": [
+        "Ruff lint and format check passed",
+        "Config repository git diff --check passed",
+        "Authoritative config diff is only comment and window-size policy"
+      ]
+    },
+    "clipboard_commit": {
+      "date": "2026-09-30",
+      "status": "Private build and isolated verification passed; installed runtime and live sessions unchanged",
+      "installed_release": "build/release.BnU6TU/tmux",
+      "installed_release_sha256": "5245bed1b44ff7654ccdd266ea1ccb421e5dd7905ca66d4cae8491eec846cf9f",
+      "build_log": "artifacts/clipboard-commit-build.txt",
+      "patch_split": "Concatenating patches 0001 and 0002 reproduces the original combined patch byte-for-byte; all four patched source files in the fresh build match the installed release source",
+      "original_red": "artifacts/interaction-second.txt: tmux buffer contained the selection and history position stayed unchanged, but the Termux emulator clipboard assertion failed",
+      "verification_scope": "95 existing tests on the rebuilt release, using private HOME/XDG directories and tmux sockets, headless terminal oracles, fake clipboard helpers, isolated file handlers and stock Mosh on loopback only",
+      "limitations": "No real desktop clipboard, phone, Android UI or live session was tested; terminal OSC 52 capability and permission are still required"
+    },
+    "pre_split_patch_sha256": "44b1c773adfe5f4cf3abb623af7009473e7a5df213254edd7718c5e4dc851bec",
+    "patches": [
+      {
+        "path": "patches/0001-scroll-on-input.patch",
+        "sha256": "45c24571670518f7a3015ff0f42eaa2a5c38a72a6e8ea1f986ec3ba6ff5d98b6"
+      },
+      {
+        "path": "patches/0002-reliable-clipboard-delivery.patch",
+        "sha256": "ff4281fe471257ce9462fbfcaf2f91c92d593dbb7b83556ce11aba4771cfccc2"
+      }
+    ]
+  },
+  "manual_gaps": [
+    "Actual Termux Android swipe, selection menu, clipboard permission and keyboard animation",
+    "Actual XFCE mouse selection and host clipboard integration",
+    "Long-duration sessions, real cellular roaming and arbitrary resize/application interleavings",
+    "Independent viewer history positions are not supported; the pane's scroll/selection state is shared",
+    "Actual desktop file-handler launch and visible file-manager selection: tests validate the requested target and selection URI with isolated recorders",
+    "Actual phone loss/reconnection and foreground/background behavior for Mosh sizing: regression tests use synthetic process/login metadata with real private tmux clients; live sessions have not been modified"
+  ]
+}
