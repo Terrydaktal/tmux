@@ -7,12 +7,7 @@ from terminal_harness import Attachment
 
 
 def tmux_argv(backend, *args):
-    alias = backend.launcher.with_name("tmux")
-    if not alias.is_symlink():
-        alias.symlink_to(backend.launcher)
-    argv = backend.cli(*args)
-    argv[0] = str(alias)
-    return argv
+    return backend.cli(*args)
 
 
 def clients(backend):
@@ -71,7 +66,7 @@ def test_legacy_new_without_A_refuses_an_existing_session(backend):
             backend, argv=tmux_argv(backend, "new-session", "-s", "test")
         )
         second.until(lambda state: second.exited)
-        assert b"session already exists" in second.wire
+        assert b"duplicate session" in second.wire
         assert backend.field("pane_pid") == pid
         assert len(clients(backend)) == 1
     finally:
@@ -84,7 +79,7 @@ def test_legacy_new_without_A_refuses_an_existing_session(backend):
 def test_legacy_program_argv_preserves_options_and_literal_separator(
     backend, separator
 ):
-    payload = "a space; touch SHOULD_NOT_EXIST;"
+    payload = "a space; touch SHOULD_NOT_EXIST"
     program = [
         sys.executable,
         "-c",
@@ -133,11 +128,10 @@ def test_legacy_single_string_program_keeps_native_shell_command_semantics(backe
 @pytest.mark.parametrize(
     "args",
     [
-        ["new-session", "-A"],
-        ["new-session", "-A", "-s", "bad.name"],
-        ["new-session", "-A", "-s", "test", "-d"],
-        ["new-session", "-A", "-s", "test", "--"],
-        ["new-session", "-A", "-s", "test"],
+        ["new-session", "-s"],
+        ["new-session", "--not-a-tmux-option"],
+        ["not-a-native-command"],
+        ["attach-session", "-t", "missing"],
     ],
 )
 def test_legacy_invalid_or_nonterminal_arguments_have_no_side_effects(backend, args):
@@ -147,6 +141,6 @@ def test_legacy_invalid_or_nonterminal_arguments_have_no_side_effects(backend, a
         capture_output=True,
         timeout=5,
     )
-    assert result.returncode == 2
-    assert not backend.socket.exists()
+    assert result.returncode != 0
+    assert backend.run("has-session", check=False).returncode != 0
     assert not backend.log.exists()

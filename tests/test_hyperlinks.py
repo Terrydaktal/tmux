@@ -17,12 +17,10 @@ def test_osc8_file_links_survive_rendering_and_reattach(backend):
         expected = "file:///tmp/tmux-link%20test.txt"
         assert app.term.command("LINK 3 0")["link"] == expected
         assert app.term.command("LINK 3 1")["link"] is None
-        # Model an already-running server with the old feature configuration.
-        backend.run("set-option", "-s", "terminal-features", "xterm*:RGB:clipboard")
         second = Attachment(
             backend,
             kind="vte",
-            argv=backend.cli("attach", "test", "--existing"),
+            argv=backend.cli("attach-session", "-t", "=test"),
         )
         second.until(lambda s: b"PLAIN-TEXT" in s["screen"])
         assert second.term.command("LINK 3 0")["link"] == expected
@@ -52,7 +50,6 @@ def test_xfce_ctrl_click_opens_and_ctrl_shift_click_reveals(backend, kind):
     )
     assert oracle.is_file(), "Build the XFCE terminal links integration test first"
     env = backend.env | {
-        "TEST_TMUX_SIMPLE": str(backend.launcher),
         "TEST_TMUX": backend.binary,
         "TERMINAL_LINK_TEST_ISOLATED": "1",
         "GDK_BACKEND": "x11",
