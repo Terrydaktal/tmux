@@ -1,0 +1,113 @@
+Keep the top visible history text anchored across resize; leave live rendering alone.
+
+--- a/window-copy.c
++++ b/window-copy.c
+@@ -258,6 +258,9 @@
+ 	int		 viewmode;	/* view mode entered */
+ 
+ 	u_int		 oy;		/* number of lines scrolled up */
++	u_int		 resize_anchor_x;
++	u_int		 resize_anchor_y;
++	int		 resize_anchor_valid;
+ 
+ 	u_int		 selx;		/* beginning of selection */
+ 	u_int		 sely;
+@@ -355,6 +358,7 @@
+ 	if (TAILQ_FIRST(&wp->modes) != wme)
+ 		return;
+ 
++	data->resize_anchor_valid = 0;
+ 	if (data->cy == 0) {
+ 		evtimer_add(&data->dragtimer, &tv);
+ 		window_copy_cursor_up(wme, 1);
+@@ -652,6 +656,7 @@
+ 	u_int				 my_w;
+ 	int				 new_slider_y, delta;
+ 
++	data->resize_anchor_valid = 0;
+ 	/*
+ 	 * sl_mpos is where in the slider the user is dragging, mouse is
+ 	 * dragging this y point relative to top of slider.
+@@ -755,6 +760,7 @@
+ 	struct screen			*s = &data->screen;
+ 	u_int				 n, ox, oy, px, py;
+ 
++	data->resize_anchor_valid = 0;
+ 	oy = screen_hsize(data->backing) + data->cy - data->oy;
+ 	ox = window_copy_find_length(wme, oy);
+ 
+@@ -813,6 +819,7 @@
+ 	struct screen			*s = &data->screen;
+ 	u_int				 n, ox, oy, px, py;
+ 
++	data->resize_anchor_valid = 0;
+ 	oy = screen_hsize(data->backing) + data->cy - data->oy;
+ 	ox = window_copy_find_length(wme, oy);
+ 
+@@ -1072,9 +1079,17 @@
+ 	struct window_copy_mode_data	*data = wme->data;
+ 	struct screen			*s = &data->screen;
+ 	struct grid			*gd = data->backing->grid;
+-	u_int				 cx, cy, wx, wy;
++	u_int				 cx, cy, wx, wy, ax, top;
+ 	int				 reflow;
+ 
++	/* Retain the logical top-of-view across a whole resize burst. */
++	if (!data->viewmode && data->oy != 0 && !data->resize_anchor_valid) {
++		top = data->oy < gd->hsize ? gd->hsize - data->oy : 0;
++		grid_wrap_position(gd, 0, top, &data->resize_anchor_x,
++		    &data->resize_anchor_y);
++		data->resize_anchor_valid = 1;
++	}
++
+ 	screen_resize(s, sx, sy, 0);
+ 	cx = data->cx;
+ 	if (data->oy > gd->hsize + data->cy)
+@@ -1088,7 +1103,17 @@
+ 		grid_unwrap_position(gd, &cx, &cy, wx, wy);
+ 
+ 	data->cx = cx;
+-	if (cy < gd->hsize) {
++	if (data->resize_anchor_valid) {
++		grid_unwrap_position(gd, &ax, &top, data->resize_anchor_x,
++		    data->resize_anchor_y);
++		if (top > gd->hsize)
++			top = gd->hsize;
++		data->oy = gd->hsize - top;
++		data->cx = cx < sx ? cx : sx - 1;
++		data->cy = cy > top ? cy - top : 0;
++		if (data->cy >= sy)
++			data->cy = sy - 1;
++	} else if (cy < gd->hsize) {
+ 		data->cy = 0;
+ 		data->oy = gd->hsize - cy;
+ 	} else {
+@@ -3467,7 +3492,7 @@
+ 	enum window_copy_cmd_action	 action;
+ 	enum window_copy_cmd_clear	 clear = WINDOW_COPY_CMD_CLEAR_NEVER;
+ 	const char			*command;
+-	u_int				 i, count = args_count(args);
++	u_int				 i, count = args_count(args), old_oy = data->oy;
+ 	int				 keys, flags;
+ 	char				*error = NULL;
+ 
+@@ -3511,6 +3536,9 @@
+ 
+ 			clear = window_copy_cmd_table[i].clear;
+ 			action = window_copy_cmd_table[i].f(&cs);
++			if (data->oy != old_oy ||
++			    strcmp(command, "history-bottom") == 0)
++				data->resize_anchor_valid = 0;
+ 			args_free(cs.wargs);
+ 			cs.wargs = NULL;
+ 			break;
+--- a/configure.ac
++++ b/configure.ac
+@@ -1,6 +1,6 @@
+ # configure.ac
+ 
+-AC_INIT([tmux], 3.7c-simple5)
++AC_INIT([tmux], 3.7c-simple6)
+ AC_PREREQ([2.60])
+ 
+ AC_CONFIG_AUX_DIR(etc)
