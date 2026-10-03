@@ -1,0 +1,150 @@
+--- a/input.c
++++ b/input.c
+@@ -2592,6 +2592,101 @@
+ 	return (0);
+ }
+ 
++/* A clipboard write belongs to the most recently active viewer of this pane. */
++static struct client *
++input_clipboard_client(struct input_ctx *ictx)
++{
++	struct client	*c, *best = NULL;
++
++	if (ictx->wp == NULL) {
++		c = ictx->c;
++		if (c != NULL && c->session != NULL &&
++		    options_get_number(c->session->options, "scroll-on-input"))
++			return (c);
++		return (NULL);
++	}
++	TAILQ_FOREACH(c, &clients, entry) {
++		if (c->session == NULL || c->flags &
++		    (CLIENT_UNATTACHEDFLAGS|CLIENT_READONLY|CLIENT_SUSPENDED) ||
++		    server_client_get_pane(c) != ictx->wp ||
++		    !options_get_number(c->session->options, "scroll-on-input"))
++			continue;
++		if (best == NULL || timercmp(&c->activity_time,
++		    &best->activity_time, >))
++			best = c;
++	}
++	return (best);
++}
++
++static u_int input_clipboard_jobs;
++
++static void
++input_clipboard_complete(struct job *job)
++{
++	input_clipboard_jobs--;
++	if (job_get_status(job) != 0)
++		log_debug("%s: copy-command failed", __func__);
++}
++
++/* Use the session's refreshed display environment, not the application's. */
++static void
++input_clipboard_pipe(struct client *c, const void *data, size_t len)
++{
++	const char	*command;
++	struct job	*job;
++
++	command = options_get_string(global_options, "copy-command");
++	/* A noisy application must not create an unbounded number of helpers. */
++	if (*command == '\0' || input_clipboard_jobs >= 8)
++		return;
++	job = job_run(command, 0, NULL, NULL, c->session, NULL, NULL,
++	    input_clipboard_complete, NULL, NULL, JOB_NOWAIT, -1, -1);
++	if (job != NULL) {
++		input_clipboard_jobs++;
++		bufferevent_write(job_get_event(job), data, len);
++	}
++}
++
++/* Decode only one wrapped clipboard write, never a query or other passthrough. */
++static int
++input_dcs_clipboard(struct input_ctx *ictx)
++{
++	const char	 prefix[] = "tmux;\033]52;";
++	const char	*selectors = "cpqs01234567", *base64 =
++	    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
++	const char	*p;
++	size_t		 len = ictx->input_len, size = sizeof prefix - 1, i;
++	char		*request;
++	int		 data = 0;
++
++	if (len <= size || memcmp(ictx->input_buf, prefix, size) != 0 ||
++	    input_clipboard_client(ictx) == NULL)
++		return (0);
++	p = ictx->input_buf + size;
++	if (ictx->input_buf[len - 1] == '\007')
++		len--;
++	else if (len >= size + 2 && ictx->input_buf[len - 2] == '\033' &&
++	    ictx->input_buf[len - 1] == '\\')
++		len -= 2;
++	else
++		return (1);
++	for (i = size; i < len; i++) {
++		if (!data && ictx->input_buf[i] == ';') {
++			data = 1;
++			continue;
++		}
++		if (ictx->input_buf[i] == '\0' ||
++		    strchr(data ? base64 : selectors, ictx->input_buf[i]) == NULL)
++			return (1);
++	}
++	if (data) {
++		request = xstrndup(p, len - size);
++		input_osc_52(ictx, request);
++		free(request);
++	}
++	return (1);
++}
++
+ /* DCS terminator (ST) received. */
+ static int
+ input_dcs_dispatch(struct input_ctx *ictx)
+@@ -2647,6 +2742,8 @@
+ 		 */
+ 	}
+ 
++	if (input_dcs_clipboard(ictx))
++		return (0);
+ 	allow_passthrough = options_get_number(oo, "allow-passthrough");
+ 	if (!allow_passthrough)
+ 		return (0);
+@@ -3270,6 +3367,7 @@
+ input_osc_52(struct input_ctx *ictx, const char *p)
+ {
+ 	struct window_pane	*wp = ictx->wp;
++	struct client		*c;
+ 	struct screen_write_ctx	 ctx;
+ 	u_char			*out;
+ 	int			 outlen;
+@@ -3278,6 +3376,18 @@
+ 	if (!input_osc_52_parse(ictx, p, &out, &outlen, clip))
+ 		return;
+ 
++	c = (*clip == '\0' || strchr(clip, 'c') != NULL) ?
++	    input_clipboard_client(ictx) : NULL;
++	if (c != NULL) {
++		/* Clipboard delivery must not be dropped by screen redraw filters. */
++		tty_set_selection(&c->tty, "c", out, outlen);
++		input_clipboard_pipe(c, out, outlen);
++		if (wp != NULL)
++			notify_pane("pane-set-clipboard", wp);
++		paste_add(NULL, out, outlen);
++		return;
++	}
++
+ 	if (wp == NULL) {
+ 		/* Popup window. */
+ 		if (ictx->c == NULL) {
+--- a/configure.ac
++++ b/configure.ac
+@@ -1,6 +1,6 @@
+ # configure.ac
+ 
+-AC_INIT([tmux], 3.7c-simple1)
++AC_INIT([tmux], 3.7c-simple2)
+ AC_PREREQ([2.60])
+ 
+ AC_CONFIG_AUX_DIR(etc)
