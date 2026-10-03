@@ -1,0 +1,65 @@
+--- a/src/network/network.h
++++ b/src/network/network.h
+@@ -217,6 +217,7 @@
+     std::string port( void ) const;
+     string get_key( void ) const { return key.printable_key(); }
+     bool get_has_remote_addr( void ) const { return has_remote_addr; }
++    uint64_t get_last_heard( void ) const { return last_heard; }
+ 
+     uint64_t timeout( void ) const;
+     double get_SRTT( void ) const { return SRTT; }
+--- a/src/network/networktransport.h
++++ b/src/network/networktransport.h
+@@ -90,6 +90,7 @@
+     bool shutdown_acknowledged( void ) const { return sender.get_shutdown_acknowledged(); }
+     bool shutdown_ack_timed_out( void ) const { return sender.shutdown_ack_timed_out(); }
+     bool has_remote_addr( void ) const { return connection.get_has_remote_addr(); }
++    uint64_t get_last_heard( void ) const { return connection.get_last_heard(); }
+ 
+     /* Other side has requested shutdown and we have sent one ACK */
+     bool counterparty_shutdown_ack_sent( void ) const { return sender.get_counterparty_shutdown_acknowledged(); }
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -94,6 +94,7 @@
+ #endif
+ 
+ #include "networktransport-impl.h"
++#include "server-status.h"
+ 
+ typedef Network::Transport< Terminal::Complete, Network::UserStream > ServerConnection;
+ 
+@@ -110,7 +111,7 @@
+ 
+ static void print_version( FILE *file )
+ {
+-  fputs( "mosh-server (" PACKAGE_STRING ") [build " BUILD_VERSION "]\n"
++  fputs( "mosh-server (" PACKAGE_STRING ") [build " BUILD_VERSION "] [rx-status1]\n"
+ 	 "Copyright 2012 Keith Winstein <mosh-devel@mit.edu>\n"
+ 	 "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n"
+ 	 "This is free software: you are free to change and redistribute it.\n"
+@@ -657,6 +658,7 @@
+   sel.add_signal( SIGUSR1 );
+ 
+   uint64_t last_remote_num = network.get_remote_state_num();
++  ServerStatus status;
+ 
+   #ifdef HAVE_UTEMPTER
+   bool connected_utmp = false;
+@@ -711,6 +713,7 @@
+       assert( fd_list.size() == 1 ); /* servers don't hop */
+       int network_fd = fd_list.back();
+       sel.add_fd( network_fd );
++      if ( status.fd() >= 0 ) sel.add_fd( status.fd() );
+       if ( !network.shutdown_in_progress() ) {
+ 	sel.add_fd( host_fd );
+       }
+@@ -919,6 +922,9 @@
+       }
+ 
+       network.tick();
++      if ( status.fd() >= 0 && sel.read( status.fd() ) ) {
++        status.respond( network.get_last_heard() );
++      }
+     } catch ( const Network::NetworkException &e ) {
+       fprintf( stderr, "%s\n", e.what() );
+       spin();
