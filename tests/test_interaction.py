@@ -1,5 +1,6 @@
 import base64
 import re
+import shlex
 
 import pytest
 from conftest import mosh
@@ -21,6 +22,26 @@ def scroll(backend, app):
     assert not re.search(rb"\[\d+/\d+\]", app.term.state["screen"])
 
 
+ORIGINAL_CLIPBOARD = b"clipboard-before-selection"
+
+
+def prepare_clipboard(backend, app, kind):
+    copied = backend.socket.parent / "copied"
+    backend.run("set-buffer", ORIGINAL_CLIPBOARD.decode())
+    backend.run("set-option", "-s", "copy-command", f"cat > {shlex.quote(str(copied))}")
+    if kind == "termux":
+        app.term.feed(b"\x1b]52;c;" + base64.b64encode(ORIGINAL_CLIPBOARD) + b"\x07")
+    return copied
+
+
+def assert_not_copied(backend, app, copied, kind):
+    assert backend.run("show-buffer").stdout == ORIGINAL_CLIPBOARD
+    assert not copied.exists()
+    assert b"\x1b]52;" not in app.wire
+    if kind == "termux":
+        assert base64.b64decode(app.term.state["clipboard"]) == ORIGINAL_CLIPBOARD
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -29,6 +50,9 @@ def scroll(backend, app):
         b"/",
         b"\x03",
         b"\x02",
+        b"\x14",
+        b"\x16",
+        b"\r",
         b"\x1b[A",
         "\u4e2d\u6587".encode(),
         b"\x1b[200~a pasted line\nsecond line\x1b[201~",
@@ -48,21 +72,36 @@ def test_typing_and_paste_leave_history_without_losing_input(backend, payload):
 
 
 @pytest.mark.parametrize("kind", ["termux", "vte"])
-def test_selection_release_keeps_position_and_copies(backend, kind):
+@pytest.mark.parametrize("copy_key", [b"\x03", b"\x1b[99;5u", b"\x1b[27;5;99~"])
+def test_selection_only_copies_on_ctrl_c_and_keeps_position(backend, kind, copy_key):
     app = backend.attach(kind)
     try:
         history(backend, app)
         scroll(backend, app)
+        copied = prepare_clipboard(backend, app, kind)
         position = backend.field("scroll_position")
         screen = app.term.state["screen"]
         app.send(b"\x1b[<0;1;5M\x1b[<32;12;5M\x1b[<0;12;5m")
-        app.until(lambda s: backend.run("show-buffer", check=False).returncode == 0)
+        app.until(
+            lambda s: (
+                backend.field("selection_present") == b"1"
+                and backend.field("selection_active") == b"0"
+            )
+        )
+        app.pump(0.2)
+        assert_not_copied(backend, app, copied, kind)
+        before = backend.received()
+        app.send(copy_key)
+        app.until(lambda s: copied.exists() and b"history-" in copied.read_bytes())
         selected = backend.run("show-buffer").stdout
         assert b"history-" in selected
+        assert copied.read_bytes() == selected
         app.pump(0.35)
         assert backend.field("pane_in_mode") == b"1"
+        assert backend.field("selection_present") == b"1"
         assert backend.field("scroll_position") == position
         assert app.term.state["screen"] == screen
+        assert backend.received() == before
         if kind == "termux":
             assert b"\x1b]52;" in app.wire, (
                 backend.run("show-options", "-sv", "set-clipboard").stdout,
@@ -84,6 +123,69 @@ def test_selection_release_keeps_position_and_copies(backend, kind):
             ).stdout.strip()
             == b"fg=default,bg=default,reverse"
         )
+    finally:
+        app.close()
+
+
+@pytest.mark.parametrize("clicks", [2, 3])
+@pytest.mark.parametrize("in_history", [False, True])
+def test_multiple_clicks_only_select_and_ctrl_c_copies(backend, clicks, in_history):
+    app = backend.attach()
+    try:
+        history(backend, app)
+        if in_history:
+            scroll(backend, app)
+        copied = prepare_clipboard(backend, app, "termux")
+        position = backend.field("scroll_position")
+        for _ in range(clicks):
+            app.send(b"\x1b[<0;2;5M\x1b[<0;2;5m")
+            app.pump(0.05)
+        app.until(lambda s: backend.field("selection_present") == b"1")
+        assert_not_copied(backend, app, copied, "termux")
+        app.send(b"\x03")
+        app.until(lambda s: copied.exists())
+        selected = backend.run("show-buffer").stdout
+        assert b"history" in selected
+        assert (b"-" in selected) == (clicks == 3)
+        assert copied.read_bytes() == selected
+        assert backend.field("pane_in_mode") == b"1"
+        assert backend.field("scroll_position") == (position or b"0")
+    finally:
+        app.close()
+
+
+@pytest.mark.parametrize("payload", [b"f", b"\r", b"\x14", b"\x16"])
+def test_typing_after_selection_does_not_copy(backend, payload):
+    app = backend.attach()
+    try:
+        history(backend, app)
+        scroll(backend, app)
+        copied = prepare_clipboard(backend, app, "termux")
+        app.send(b"\x1b[<0;1;5M\x1b[<32;12;5M\x1b[<0;12;5m")
+        app.until(lambda s: backend.field("selection_present") == b"1")
+        before = backend.received()
+        app.send(payload)
+        app.until(lambda s: backend.received() == before + payload)
+        assert backend.field("pane_in_mode") == b"0"
+        assert_not_copied(backend, app, copied, "termux")
+    finally:
+        app.close()
+
+
+def test_right_click_does_not_copy_or_move_history(backend):
+    app = backend.attach()
+    try:
+        history(backend, app)
+        scroll(backend, app)
+        copied = prepare_clipboard(backend, app, "termux")
+        position = backend.field("scroll_position")
+        app.send(b"\x1b[<0;1;5M\x1b[<32;12;5M\x1b[<0;12;5m")
+        app.until(lambda s: backend.field("selection_present") == b"1")
+        app.send(b"\x1b[<2;5;5M\x1b[<2;5;5m")
+        app.pump(0.2)
+        assert_not_copied(backend, app, copied, "termux")
+        assert backend.field("pane_in_mode") == b"1"
+        assert backend.field("scroll_position") == position
     finally:
         app.close()
 
@@ -171,17 +273,25 @@ def test_stock_mosh_history_copy_typing_resize_and_reattach(backend, kind, lossy
             backend.socket.parent,
             kind,
             lossy,
-            program=backend.cli("attach", "test", "--existing"),
-            client="/usr/bin/mosh-client",
-            server="/usr/bin/mosh-server",
+            program=backend.cli("attach-session", "-t", "=test"),
         )
         app = remote.attachment
         app.until(lambda s: b"HISTORY-END" in s["screen"])
         assert b"history-0000" not in app.term.state["text"]
         scroll(backend, app)
+        copied = prepare_clipboard(backend, app, kind)
         app.send(b"\x1b[<0;1;5M\x1b[<32;12;5M\x1b[<0;12;5m")
-        app.until(lambda s: backend.run("show-buffer", check=False).returncode == 0)
+        app.until(
+            lambda s: (
+                backend.field("selection_present") == b"1"
+                and backend.field("selection_active") == b"0"
+            )
+        )
+        assert_not_copied(backend, app, copied, kind)
+        app.send(b"\x03")
+        app.until(lambda s: copied.exists() and b"history-" in copied.read_bytes())
         selected = backend.run("show-buffer").stdout
+        assert copied.read_bytes() == selected
         if kind == "termux":
             app.until(lambda s: base64.b64decode(s["clipboard"]) == selected)
         assert int(backend.field("scroll_position")) > 24
@@ -211,9 +321,7 @@ def test_stock_mosh_history_copy_typing_resize_and_reattach(backend, kind, lossy
         remote = mosh.Session(
             backend.socket.parent,
             kind,
-            program=backend.cli("attach", "test", "--existing"),
-            client="/usr/bin/mosh-client",
-            server="/usr/bin/mosh-server",
+            program=backend.cli("attach-session", "-t", "=test"),
         )
         remote.attachment.until(lambda s: b"HISTORY-END" in s["screen"])
         assert len(backend.run("list-clients").stdout.splitlines()) == 2

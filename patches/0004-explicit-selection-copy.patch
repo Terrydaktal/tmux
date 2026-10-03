@@ -1,0 +1,27 @@
+--- a/server-client.c
++++ b/server-client.c
+@@ -1230,11 +1230,12 @@
+-	/* History browsing is not an input mode for scroll-on-input sessions. */
++	/* Resume on input, except Ctrl+C copying an existing selection. */
+ 	key0 = key & (KEYC_MASK_KEY|KEYC_MASK_MODIFIERS);
+ 	if (wp != NULL && (~c->flags & CLIENT_READONLY) &&
+ 	    options_get_number(s->options, "scroll-on-input") &&
+ 	    !KEYC_IS_MOUSE(key) && key != KEYC_FOCUS_IN &&
+ 	    key != KEYC_FOCUS_OUT &&
+ 	    key0 != (KEYC_PPAGE|KEYC_SHIFT) &&
+ 	    key0 != (KEYC_NPAGE|KEYC_SHIFT) &&
+ 	    (wme = TAILQ_FIRST(&wp->modes)) != NULL &&
+-	    wme->mode == &window_copy_mode)
++	    wme->mode == &window_copy_mode &&
++	    (key0 != ('c'|KEYC_CTRL) || wme->screen->sel == NULL))
+ 		window_pane_reset_mode(wp);
+--- a/configure.ac
++++ b/configure.ac
+@@ -1,6 +1,6 @@
+ # configure.ac
+ 
+-AC_INIT([tmux], 3.7c-simple2)
++AC_INIT([tmux], 3.7c-simple3)
+ AC_PREREQ([2.60])
+ 
+ AC_CONFIG_AUX_DIR(etc)
