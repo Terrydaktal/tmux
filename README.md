@@ -1,52 +1,79 @@
-# tmux-simple
+# tmux
 
-An opt-in trial of **stock Mosh + minimally patched tmux**, alongside
-`tmux-native` and `mosh-native`. It does not replace them, read `~/.tmux.conf`,
-change XFCE/Termux settings, or migrate running programs.
+This fork is published as [Terrydaktal/tmux](https://github.com/Terrydaktal/tmux),
+with the maintained patch series and integration helpers on `main`.
+Existing `tmux-simple` configuration, socket and local directory names are
+compatibility paths, not a separate project or a second tmux installation.
 
-## Try It
+**Our compatibility Mosh fork + patched tmux**, with normal tmux commands and simplified
+terminal interaction. `tmux` is a symlink directly to the compiled binary;
+`tmux-mosh` is the separate Mosh status/sizing helper. There is no Python command
+launcher or `tmux-simple` command. The source directory and private socket retain
+their historical names so existing sessions keep working.
 
-In a fresh desktop terminal, outside another multiplexer:
+The host commands `tmux`, `mosh`, `mosh-client` and `mosh-server` use our builds,
+not distro binaries. The compatibility Mosh server includes authenticated
+last-packet timestamp reporting while retaining the ordinary Mosh wire protocol.
+`mosh-native-server` is our separate native-history fork: its client/server protocol
+is incompatible with the compatibility transport. Its name keeps these endpoints
+distinct and preserves existing phone commands. Neither name means an upstream
+binary; our tmux server is simply named `tmux`.
+
+`tmux-mosh clients` compares running executable hashes against our release links,
+never a distro executable discovered through PATH. Mosh has a red background
+unless its running image is verified as the latest release of its approved fork
+variant. Unavailable verification is also red, not a claim that a build is current.
+Updating links does not upgrade existing servers or the phone's client.
+
+## Usage
+
+In a fresh desktop Fish terminal, outside another multiplexer:
 
 ```sh
-tmux-simple attach simple-test -- fish -l
+tmux new-session -A -s diet fish -l
 ```
 
-Start your application there. Attach to the same session from local Termux with
-the **ordinary** Mosh executable, not `mosh-native`:
+Start your application there. Attach from Termux with ordinary Mosh, not
+`mosh-native`:
 
 ```sh
 "$PREFIX/bin/mosh" \
   --ssh="ssh -p 22 -i $HOME/storage/downloads/Telegram/client_lewis_key" \
-  --server=/usr/bin/mosh-server \
+  --server=/home/lewis/.local/bin/mosh-server \
   lewis@100.74.187.127 -- \
-  /home/lewis/.local/bin/tmux-simple attach simple-test --existing
+  /home/lewis/.local/bin/tmux \
+  -S /run/user/1000/tmux-simple-1000/server.sock attach-session -t diet
 ```
 
-No phone build or installation is needed. Leave out `--no-init`; the ordinary
-alternate-screen and mouse-reporting behaviour is intentional here. SSH also
-works: `ssh -t YOUR_HOST 'tmux-simple attach simple-test --existing'`.
+No phone build/install is needed. Leave out `--no-init`; the ordinary alternate
+screen and mouse reporting are intentional. SSH works too:
+`ssh -t YOUR_HOST 'tmux attach-session -t diet'` with the installed Fish function.
+For another login shell, pass the same explicit `-S` as above. Replace
+`attach-session -t diet` with `new-session -A -s diet` to create if missing; the
+private socket directory must already exist when bypassing the Fish function.
 
-The desktop stays attached. Both viewers control the same application. Its size
-follows the viewer that most recently interacted or resized (`window-size latest`),
-so a tall phone is not capped by a shorter desktop window when its keyboard closes.
-The inactive viewer can show padding or a cropped viewport; one shared application
-cannot have two independent terminal sizes. **History browsing/selection is shared
-by the pane**, so scrolling on one viewer also affects the other. They do not have
-independent history viewports. No independent scrolling is promised by this trial.
+Both viewers control the same application. Its size follows the viewer that last
+interacted or resized (`window-size latest`). The other viewer may show padding
+or a cropped viewport: one application cannot have two independent terminal
+sizes. History browsing/selection is shared by the pane, not independent per
+viewer. Closing an attachment leaves the program running. Persistence does not
+survive reboot or a policy killing user processes on logout.
 
 ## Controls
 
 - No tmux status bar, prefix, default key tables, or `[position/history]` banner.
 - At a shell or non-mouse-aware application, wheel/Termux swipe scrolls tmux's
   retained history, five rows per wheel event. Scrolling back down returns live.
-- Typing, ordinary arrows, Escape, Ctrl+C, Ctrl+B, and bracketed paste leave
-  history automatically and go to the running program. No `f` jump prompt.
+- Typing, ordinary arrows, Escape, Ctrl+B, and bracketed paste leave history
+  automatically and go to the running program. Ctrl+C does the same when there
+  is no selection; with selected text, it copies instead. No `f` jump prompt.
 - Shift+PageUp/Shift+PageDown explicitly browse history if the outer terminal
   passes those keys. Mouse-aware applications keep their own clicks and wheel.
-- Drag selects using tmux, with a neutral reversed-text highlight. Release
-  copies without clearing the selection, exiting history, or jumping down.
-- Double-click selects a word; triple-click selects a line, also without jumping.
+- Drag selects using tmux, with a neutral reversed-text highlight. Release only
+  stops selecting: it does not copy, clear the selection, or jump down.
+- Double-click selects a word; triple-click selects a line. Neither copies.
+- Ctrl+C explicitly copies selected text without clearing it or moving the
+  viewport. The copy-mode binding works over SSH/Mosh without XFCE integration.
 - The terminal's selection override (usually Shift on desktop) still permits
   native selection/menu behaviour. This is not literally native mouse selection.
 
@@ -105,292 +132,678 @@ asserting unchanged history position and viewport. Stock-Mosh tests also exercis
 copying with both viewers attached. OSC 52 still requires terminal support and
 permission; this patch does not bypass clipboard policy.
 
-### Desktop File Links
+## Application Clipboard Writes
 
-The local XFCE4 Terminal fork keeps Ctrl+click to open a file and
-Ctrl+Shift+click to open its parent directory with the file selected. The
-`hyperlinks` terminal feature preserves OSC 8 targets in live output, retained
-history and new attachments. The launcher also advertises this capability for
-each xterm-style attachment, so an older running server needs no restart or
-configuration reload.
+The copy-mode fix above does not cover selections drawn by Codex or Pi themselves.
+An application started over SSH can lack `DISPLAY` and `WAYLAND_DISPLAY` even after
+a desktop attaches. Its native clipboard cannot reach the desktop. Codex's fallback
+is a tmux-wrapped OSC 52 write: unrestricted passthrough is disabled, and the installed
+VTE does not implement OSC 52 writes even if they reach it. Pi uses ordinary OSC 52.
+Neither path used to invoke tmux's desktop `copy-command` helper.
 
-Plain detected paths need the terminal fork's tmux-aware path resolver. On a
-click it queries the attached client's explicit local socket, matches that
-client to its active pane, and reads the pane's foreground application and CWD.
-The application allowlist still applies. It never treats the tmux client's
-startup directory as the pane's current directory. Queries time out after
-250 ms, do not start servers, and do not run on output or mouse movement.
+`0003-application-clipboard-delivery.patch` handles ordinary OSC 52 and exactly one
+tmux-wrapped clipboard write when `scroll-on-input` is enabled. It sends explicit
+`52;c;` directly to the most recently active, writable viewer of the source pane,
+and pipes the same decoded text to `copy-command` using that viewer's session
+environment. The attachment hook can therefore restore desktop clipboard access
+without changing the already-running application's environment. Helpers are
+bounded to eight simultaneous jobs. A helper failure is recorded in tmux debug logs.
 
-After rebuilding the terminal fork, open a new terminal window and run
-`tmux-simple attach NAME --existing`. Do not kill or recreate the session.
-These desktop actions are local; this does not add remote file opening or
-hyperlink transport to stock Mosh.
+`set-clipboard on` is required; `off` and `external` reject application writes.
+Wrapped queries, invalid data and combined escape sequences are not forwarded by
+this handler. General passthrough remains disabled. No clipboard reads, terminal
+library replacement, Codex changes or VM clipboard-read permission are added.
+Applications using other tmux clipboard commands retain their existing behavior.
+
+The release identifies itself as `tmux 3.7c-simple6`. A running old server does not
+load a new executable by reattaching or reloading config. Test on a fresh server
+before deliberately retiring any existing sessions; rebuilding never kills them.
+Patch 0004 keeps Ctrl+C in copy mode when a selection exists; otherwise the
+scroll-on-input path would discard it before the configured copy binding ran.
+Other keyboard input still resumes the application. Changing the mouse bindings
+alone disables automatic copying on old servers, but the SSH/Mosh Ctrl+C binding
+needs the new server executable. Reload configuration without restarting programs
+with `tmux source-file ~/.tmux.conf`; do not kill a server containing unsaved work.
+`tests/test_application_clipboard.py` includes actual XFCE keyboard and X11 clipboard
+checks under private Xvfb/D-Bus sessions, as well as policy and multi-viewer checks.
+`tests/test_codex_clipboard.py` checks the installed Codex executable with a private
+synthetic conversation, mouse selection and Ctrl+C. `TEST_CODEX` selects another
+release. It uses an embedded server and a loopback-only model-provider address;
+it neither submits a prompt nor loads the user's conversations or credentials.
+
+The terminal process also needs to load its copy-key fix. Opening a new tmux
+session inside an old XFCE window upgrades neither the terminal nor the tmux
+server. `tmux -V` reports the client binary on disk; to check the actual server,
+run `tmux display-message -p '#{version}'`. After saving work in every session,
+stop that server with `tmux kill-server`, then create the session from a newly
+launched XFCE process. Never stop the shared server merely to test clipboard
+changes while other sessions still contain work.
+
+## Reading Position On Resize
+
+While browsing history, patch 0007 retains the logical text position at the top
+of the visible copy-mode viewport through width and height changes. Consecutive
+resizes reuse that position rather than following the copy cursor or drifting
+by a wrapped line. Scrolling or navigation establishes a new position. The view
+is clamped when the terminal is taller than the available history; shrinking
+again restores the retained position. At the live bottom, normal tail behavior
+is unchanged. Native Unicode cell packing can change the precise wrap boundary,
+but the reading text remains in the top visible row.
+
+This is not the retired copy-mode resize/repaint workaround. Tmux does not
+search transcripts for matching text, replace the copy-mode snapshot after an
+application repaint, or alter the application parser or live renderer.
+Pi and Pi-opsec use their normal renderer without the Pi-only refresh helper.
+The retired helper's installer only removes known old hooks; its legacy apply
+and check switches no longer install or require that hook.
+
+The last-active-device sizing policy, Mosh-aware client participation, ordinary
+SIGWINCH forwarding, clipboard delivery and explicit-copy bindings are unchanged.
+Termux or an application's own renderer may move to the bottom during resize;
+tmux does not add a workaround for that behavior.
+
+`tests/test_reading_position.py` checks actual Fish, short/wrapped/Unicode history,
+resize round trips, tiny/oversized viewports, continued input and multiple viewers
+using private VTE/Termux emulators. `tests/test_native_resize.py` verifies that
+only the focused copy-mode patch changes the restored sources; the parser and
+shared structures still match the release before the retired workaround.
+The old workaround and its tests are preserved in ignored rollback artifacts.
+Existing servers require a deliberate restart to load this patch; installing
+the binary or reloading configuration does not replace a running server.
+
+## Desktop File Links
+
+The local XFCE4 Terminal fork keeps Ctrl+click to open a file and Ctrl+Shift+click
+to open its parent directory with the file selected. The `hyperlinks` terminal
+feature in `tmux.conf` preserves OSC 8 targets in live output, retained history
+and new attachments. No launcher capability flag is needed.
+
+Plain detected paths use the terminal fork's tmux-aware resolver. On a click it
+queries the attached client's explicit local socket, matches it to the active
+pane, and reads the foreground application and CWD. The application allowlist
+still applies. Queries time out after 250 ms, never start servers, and do not run
+on output or mouse movement. Use the Fish function or explicit `-S` when
+attaching so the resolver can identify the socket. Open a new rebuilt terminal
+window and reattach; do not kill or recreate sessions. These actions are local,
+not remote file opening or hyperlink transport added to stock Mosh.
 
 ## Session Commands
 
 ```sh
-tmux-simple list
-tmux-simple clients
-tmux-simple attach simple-test
-tmux-simple attach simple-test --existing
-tmux-simple detach simple-test
-tmux-simple kill simple-test --yes
-```
-
-`attach` creates a missing session, using `$SHELL -l` if no program follows `--`.
-`--existing` refuses creation. Supplying a program for an existing session is an
-error rather than a restart. Closing the attachment leaves the program running;
-`exit` in the session's shell ends it. `detach` disconnects all viewers without
-stopping the program. `kill --yes` deliberately ends the session and its program.
-Persistence does not survive reboot or a policy killing user processes on logout.
-
-The familiar create-or-attach spelling also works through either launcher name:
-
-```sh
+tmux list-sessions
+tmux list-clients
 tmux new-session -A -s diet
-tmux new -As diet
-tmux new-session -A -s diet fish -l
+tmux attach-session -t diet
+tmux detach-client -s diet
+tmux kill-session -t diet
 ```
 
-`new-session` (alias `new`) requires `-s NAME`; `-A` creates the session if missing
-or attaches without disconnecting other viewers. Without `-A`, an existing name
-is an error. A program may follow the options directly or after `--`; with `-A`
-it is used only when creating a session and ignored on reattachment, as in
-vanilla tmux. The existing program is never restarted or replaced. Other native
-tmux commands and options are not implicitly forwarded to the backend. As in
-native `new-session`, a single command argument is interpreted by the shell;
-multiple command arguments are passed as an argument vector without shell
-interpretation. The simplified `attach` command retains its literal-argument
-behavior.
+These are native tmux commands. `new-session -A` creates or attaches without
+disconnecting other viewers; `attach-session` refuses creation. Programs supplied
+with `-A` are used only on creation, not reattachment. `detach-client -s`
+disconnects all viewers of that session without stopping it. `kill-session`
+deliberately ends it and its programs, with no launcher confirmation prompt.
 
-The default socket is `$XDG_RUNTIME_DIR/tmux-simple-UID/server.sock`, or
-`/tmp/tmux-simple-UID/server.sock` without that variable. `--socket PATH` selects
-an isolated backend, with a user-owned mode-0700 parent; `--tmux PATH` selects a
-separately built `tmux 3.7c-simple1`. An unmarked server is refused, not modified.
+Aliases such as `tmux new -As diet` work. All native commands/options are
+available directly, including `new-window`, `split-window`, control mode, `-f`,
+`-S` and `-L`. A single program argument in `new-session` is interpreted by the
+shell; multiple program arguments are passed literally as an argument vector.
 
-### Mosh Client Sizing
+The Fish function selects `$XDG_RUNTIME_DIR/tmux-simple-UID/server.sock`, or
+`/tmp/tmux-simple-UID/server.sock` without an absolute runtime directory. It
+creates the mode-0700 directory if absent and refuses unsafe existing paths.
+Explicit `-S PATH`, `-L NAME`, or an inherited `TMUX` pass through unchanged.
+No program arguments are translated. Outside Fish, the binary uses tmux's
+standard default socket unless you pass `-S` explicitly.
 
-`tmux clients` lists each attached session/client with its transport, Mosh
-connection status, peer, terminal dimensions and sizing flag. `--json` provides
-the same inventory for scripts. Both `clients` and `list` ensure automatic
-sizing is running on an existing server; neither creates a missing server or
-session. No opt-in flag is needed. The old `--manage-sizing` spelling remains
-accepted for compatibility.
+## Mosh Status And Sizing
 
 ```sh
-tmux clients
-tmux clients --json
-tmux list
+tmux-mosh clients
+tmux-mosh clients --once
+tmux-mosh clients --flat
+tmux-mosh clients --json
+tmux-mosh cleanup --dry-run
+tmux-mosh cleanup
+tmux-mosh cleanup --include-legacy --dry-run
+tmux-mosh cleanup --include-legacy
+tmux-mosh ensure
+tmux-mosh start
+tmux-mosh -S /path/to/server.sock clients
 ```
 
-New attachments automatically start one monitor per private server if a Mosh
-ancestor or an existing Mosh client is detected. For already attached sessions,
-ordinary `tmux clients` or `tmux list` also starts it, without restarting or
-detaching anyone. Repeated commands reuse the same monitor. If startup fails,
-the command still displays its inventory and prints a warning on stderr.
-The monitor reads client/process metadata and stock Mosh's login records every
-two seconds; it does not capture packets, add probes, or modify Mosh. No phone
-update or root access is needed. It exits when its server disappears. With no
-Mosh clients, it checks only the client inventory every five seconds and does
-not run `who`; remaining alive avoids racing a new phone attachment.
+`clients` opens a live, collapsible session tree in an interactive terminal,
+expanded by default with columns ordered `TYPE`, `SESSION`, `APP`,
+`CONNS`, `IDLE`, `PEER`, `SIZE`, `SIZING`.
+Expand/collapse markers occupy a separate gutter before `TYPE` on group rows.
+Connection rows use the same box-drawing branches as `fsx`
+(&#9500;&#9472;&#9472; and &#9492;&#9472;&#9472;), extending from the parent type.
+Each expanded group's child list is followed by one blank line; collapsed groups
+do not add a spacer. Blank lines are not selectable and do not count as connections.
+Viewer names float under the parent type, while their details stay in the aligned
+data columns; there is no separate `VIEWER` column. Tmux, VM and standalone-session
+groups show their app/type once on the parent, not on every connection.
+VM app PIDs identify host attachment launchers and appear beside the parent's
+app name; they are not inferred guest-process PIDs.
+Each tmux session shows its foreground app and connection count once; expanding
+the session reveals its XFCE, Mosh, SSH or other viewers. Sessions with no viewers
+remain visible with a zero count. Verified VM session names form separate
+`opsec-tmux` groups. Each standalone Mosh/SSH session has its own top-level `direct`
+parent showing the app/PID and `CONNS=1`, with one Mosh/SSH child carrying idle,
+peer, size and sizing. Other-server connections use the same structure with their
+own type. Distinct sessions are never merged by app name or PID, and there is no
+`other connections` wrapper. Parents stay visible when their transport children
+are collapsed; fold/selection identity survives foreground app changes.
+Existing host-tmux viewers into a VM
+stay under their actual host session and show `-> opsec-tmux SESSION` in the tree label.
 
-When Mosh explicitly marks a client unreachable, the monitor sets that client's
-`ignore-size` flag. With another eligible client attached, the desktop expands
-without ending the phone connection or the application. It clears its own flag
-when the phone reconnects. Existing manual `ignore-size` flags and unrelated
-client flags are preserved. Ownership is retained in private tmux user options
-so a replacement monitor can recover after a crash. The monitor preserves the
-configured size policy (`window-size latest` by default). Changing the private
-ownership option also triggers size recalculation on the pinned backend.
+Click a session or press Enter/Space to fold it. Up/Down or the wheel moves the
+selection; Left returns to the parent/collapses it, and Right expands/enters it.
+`e` expands all, `c` collapses all, `r` refreshes, and `q`/Escape exits. Inventory
+refreshes once per second in one background worker; folding and the selected
+connection survive refreshes. Resizing fits/clips columns instead of wrapping.
+New sessions start expanded; manually collapsed sessions stay collapsed.
+The alternate-screen view restores the terminal and disables its mouse reporting
+when it exits, including on interruption.
 
-Stock Mosh normally marks a lost peer after about 30 seconds, followed by up to
-one monitor polling interval. This is network reachability, not keyboard idle
-time or Android foreground/background state. A backgrounded Termux still sending
-Mosh traffic remains connected. Missing/ambiguous login records show `UNKNOWN`,
-not `UNREACHABLE`; they do not cause new exclusions. If records become unavailable,
-previous automatic flags are cleared when the client identity can be verified.
-This requires Linux `/proc`, GNU `who`, and Mosh with login-record support.
+`--once` prints an expanded tree snapshot; piping output also uses that format
+without entering an interactive display. `--flat` retains the previous table.
+`--json` preserves the existing machine-readable schema and is always one-shot.
+All these views are read-only: they neither start a sizing monitor nor create,
+attach, detach or terminate a server/session. Connection counts mean tmux
+attachments, not proof that a Mosh viewer is currently reachable; check `IDLE`.
 
-The monitor uses a mode-0600 `.sizing.lock` and `.sizing.log` beside the private
-server socket. Unsafe paths are refused. The log records startup/runtime
-failures; it is bounded at startup. No broad process scans, global tmux config,
-clipboard, terminal preferences or existing Mosh transports are changed.
+`cleanup` is an explicit, one-shot operation: close this user's Mosh servers on
+this host after **30 seconds without a received client packet**. It includes
+standalone apps and connections to every tmux socket, regardless of `-S`.
+`--dry-run` previews the targets; `--older-than SECONDS` changes the positive
+integer cutoff, and `--json` returns actions and counts. It never runs as part
+of the sizing monitor, inventory, or attachment hooks.
+
+By default, cleanup uses the verified authenticated-packet timestamp, not keyboard idle time
+or the coarse `UNREACHABLE` login flag. Old servers with no timestamp, failed
+queries, and changed/exited processes are skipped. Before sending SIGTERM it
+opens a PID descriptor and rechecks process identity and packet age, so a recycled
+PID cannot target another application and a reconnect noticed by the final query
+cancels cleanup. Packet receipt and signalling are separate operations: a client
+can still reconnect after that final query. No force-kill or PID-only fallback is
+used if safe signalling is unavailable.
+
+Use `--include-legacy` to also clean up old servers that lack packet timestamps
+but have an unambiguous, terminal-verified **`UNREACHABLE`** Mosh login record.
+Stock Mosh sets this coarse flag after about 30 seconds without a client update;
+it does not supply an exact packet age. `SOURCE` shows `legacy-login` and `IDLE`
+stays `-` rather than inventing a timestamp. Connected, unknown, ambiguous and
+newly started legacy servers are kept/skipped. Cleanup rechecks the login flag
+and terminal identity after pinning the server's PID; a reconnect already visible
+in the login record cancels cleanup. The coarse flag can lag a reconnect, so
+this is an explicit opt-in, not equivalent to the exact packet-age guarantee.
+This option is valid only with the default 30-second cutoff; older servers cannot
+verify arbitrary `--older-than` values. It does not force-kill all old servers.
+
+Tmux servers and their programs are not targeted. **A standalone Mosh shell/app
+can terminate when its Mosh session closes.** A temporary signal outage can also
+reach the cutoff, so preview before cleaning up. SIGTERM requests shutdown; a
+`closing` result does not claim that the server has already exited.
+
+<pre>
+      TYPE        SESSION  APP           CONNS  IDLE    PEER            SIZE     SIZING
+[-]   tmux        diet     codex (1234)  2
+      &#9500;&#9472;&#9472; xfce4-terminal                         -       -               126x41   active
+      &#9492;&#9472;&#9472; mosh                                   0s      100.70.36.28    81x85    standby
+
+[-]   opsec-tmux  pi-live  pi-opsec      2
+      &#9500;&#9472;&#9472; xfce4-terminal                         -       -               126x41   -
+      &#9492;&#9472;&#9472; mosh                                   0s      100.70.36.28    81x85    -
+
+[-]   direct      -        fish (9012)   1
+      &#9492;&#9472;&#9472; mosh                                   0s      100.70.36.28    81x85    -
+
+[-]   direct      -        fish (9013)   1
+      &#9492;&#9472;&#9472; ssh                                    -       100.70.36.28    126x41   -
+
+</pre>
+
+Column headers are uppercase and all displayed values are lowercase, including
+session/application names, types and reachability labels. This affects text
+presentation only; JSON preserves actual names and its existing enum values.
+Snapshots end at the tree/table: no scope footer, column legend or informational
+warnings are appended, including in `--verbose`. The live view has one short
+controls line, which also reports a refresh failure without pretending the old
+snapshot is fresh. Diagnostic notes remain in the `note` field of `--json` output;
+explicit command failures still report errors. The tree's `SESSION` column shows
+session names where known and `-` for unnamed direct sessions. Box-drawing
+child branches identify each session viewer (`VIA` in the legacy
+flat table). Child details remain under their original column headers, without
+inline `key=value` annotations; the parent's app is not repeated. `CONNS` shows the
+attachment/group count: zero for detached tmux sessions, the attachment total for
+tmux/VM groups, and one for each direct-session parent. Children do not repeat it.
+App PIDs remain next to app names; commands,
+TTYs, frontend PIDs and build dates are not added back to the text view.
+
+- `TYPE`: `tmux` for the selected server, `direct` for a Mosh/SSH shell/app,
+  `opsec-tmux` for a host-side foreground viewer into the opsec VM's persistent tmux,
+  `other-tmux` for a remote connection to tmux outside that server's inventory,
+  or `unknown` when its foreground process cannot be identified.
+  VM viewers are recognized from owned foreground SSH processes using the fixed
+  opsec route and the guest Pi/shell launcher or an explicit guest tmux attachment.
+  A local terminal viewer gets a row even without a host tmux server. Existing
+  Mosh/SSH or host-tmux rows leading into the VM are retyped in place, not duplicated.
+  Plain SSH sessions, VM background jobs, forwarding masters, and service commands
+  are not labelled `opsec-tmux`. Detection reads process metadata. One bounded,
+  read-only query through the already-running VM SSH master retrieves actual
+  session names. It never starts the VM, opens a TCP route, creates tmux servers,
+  changes tmux sizing or installs a background poller. The live view repeats the
+  bounded read-only inventory query only while open. It identifies attachment
+  requests still running, not remote authentication/reachability or unseen viewers
+  from other users/machines. `APP`, JSON commands and PIDs remain host-side.
+- `SESSION`: the actual host or VM tmux session name; `-` for direct or out-of-scope
+  Mosh rows. VM names come from the guest's existing managed servers, matched to
+  the requested workspace/action or explicit socket/session target, not a guessed
+  workspace hash. An unavailable or ambiguous lookup shows `-`; JSON's `note`
+  field explains the unavailable metadata.
+  The existing owned SSH master defaults to `/run/opsec-whonix-terminal/master`;
+  `TMUX_MOSH_OPSEC_CONTROL_PATH` overrides the lookup socket. The entire query
+  times out after two seconds; without VM viewers there is no query.
+- `APP`: application label and PID together, for example `codex (1234)`,
+  `pi (5678)` or `pi-opsec (9012)`. A verified Pi child in a waiting shell's
+  foreground process group is shown as `pi` with its own PID, rather than the
+  Bash launcher or SSH tunnel helper. Pi is recognized by its runtime/title or
+  known coding-agent CLI path, not a session name or a substring in arbitrary
+  arguments. Ambiguous, foreign, dead or unrelated children do not replace the
+  shell. VM Pi attachment requests show `pi-opsec` with the host viewer's PID,
+  not an invented guest PID. Shell-only VM attachments are not labelled Pi.
+  Other pipelines/wrappers still use their foreground group representative,
+  using the active pane for tmux sessions. Detached sessions retain app info.
+  JSON retains the underlying executable in `app`, actual argv in `command`,
+  and the optional friendly name in `app_label`.
+- `VIA`: local viewers show the terminal application, for example `xfce4-terminal`.
+  Remote viewers show `ssh` or `mosh`, based on the client's process ancestry.
+  No PIDs or build dates are embedded in these labels; PIDs remain in JSON.
+  Unavailable or orphaned
+  ancestry is `unknown`, not assumed local; missing local frontend details show
+  `local` rather than inventing a terminal. `detached` means
+  the session has no clients but its programs are still running. `changing` means
+  the session/client snapshot raced an attachment change; rerun to refresh.
+  A listed transport does not prove the window is visible or the peer is reachable.
+  Detailed process/attachment states remain available in JSON, not a table column.
+- Outdated `mosh`, `xfce4-terminal` and tmux type labels have a red background.
+  Only the label is highlighted, not the row, padding or Mosh reachability flag.
+  Tmux and XFCE compare against the installed binary (`~/.local/bin` before PATH);
+  VM tmux compares against the VM's installed tmux. Mosh also checks for newer
+  locally built release executables alongside its installed release, even if
+  the installation symlink has deliberately not been updated. Release discovery
+  requires a build-completion manifest and a readable executable ELF image;
+  incomplete builds are ignored. Standard and native Mosh are compared separately,
+  never against each other. This only changes reporting: no binaries are activated
+  and no connections are restarted. Running executables
+  are read through `/proc/PID/exe`, including replaced/deleted builds. SHA-256
+  fingerprints distinguish local rebuilds sharing a version string or timestamp;
+  identical copies still match. Hashes are bounded and cached per executable in
+  each snapshot, without running binaries or adding a polling worker.
+  Unavailable comparisons remain unhighlighted, not falsely marked outdated.
+  Output redirected to a file/pipe, `TERM=dumb`, `NO_COLOR`, and JSON stay plain.
+  There are no build-date columns or dates appended to the labels.
+- `IDLE`: elapsed time since the Mosh server received a fresh authenticated client
+  packet. Both tmux and direct Mosh rows use the same server timestamp. Local, SSH
+  and detached rows show `-`; old Mosh servers without the status API also show `-`.
+  No separate `LINK` column is needed when the exact packet age is available.
+  When it is unavailable, `VIA` retains the coarse login flag instead, for example
+  `mosh [unreachable]`. `[recent]` is not proof Termux is foregrounded;
+  `[unreachable]` normally appears after about 30 seconds without a client update.
+  Missing/ambiguous login records show `[unknown]`, not an invented packet age.
+- `SIZING`: `active` identifies the viewer currently controlling its window's
+  size under the default `latest` policy; `standby` is eligible but not currently
+  controlling it. Input or resizing from another viewer transfers ownership, even
+  when both terminals have identical dimensions. Ownership is read directly from tmux's
+  sizing calculation, not inferred from terminal size or rounded activity times.
+  `auto-off` or `manual-off` means ignored automatically or manually. `shared`
+  means the `smallest`/`largest` policy combines eligible viewers; `manual` means
+  an explicitly set window size. `-` means not applicable. Older running servers
+  without patch `0005-active-sizing-reporting.patch` show `unknown` for eligible
+  viewers, with a diagnostic in JSON's `note` field; installing the binary does
+  not restart existing sessions.
+  The report is read-only and does not itself change sizing ownership or policy.
+  JSON includes `window_id`, `sizing_policy`, `sizing_client_pid` and
+  `active_sizing`; a zero owner PID means no single client controls the window,
+  while `null` means ownership is unavailable.
+- `SIZE`: terminal columns x rows, not pixels. Tmux rows retain the individual
+  viewer's dimensions. Direct Mosh/SSH and other-tmux connections read their owned
+  login PTY with a read-only size query; no input is consumed or resize performed.
+  Missing, inaccessible or zero-size terminals show `-`, as do detached sessions.
+
+Command lines are not shown in the text table. `--verbose` remains accepted for
+compatibility and uses the same columns as the default view. `--json` retains
+full current foreground arguments in `command`, preserving case and quoting.
+These are process argv, not historical shell input, environment variables or
+redirections; applications may rewrite them. Arguments can contain secrets:
+review JSON output before sharing it.
+
+Control clients are included but have no terminal size or sizing participation.
+The attachment's terminal path remains in JSON's `tty` field, not a table column.
+JSON also exposes session/client creation and activity timestamps, the original
+tmux activity age as `activity_idle_seconds`, and the detected frontend process
+name/PID. Individual `app_pid`, `mosh_pid` and `reachability` fields remain in JSON
+even though their dedicated table columns are removed. `idle_seconds` now means
+Mosh packet age. `server_binary_mtime` identifies the selected tmux server's
+running executable; unified rows expose `frontend_binary_mtime` and
+`tmux_binary_mtime` as Unix timestamps or `null` when unavailable. These are
+filesystem modification times, not official release dates. The unified `entries`
+array also exposes `frontend_outdated` and `tmux_outdated` as true/false or `null`
+when unavailable; `server_binary_outdated` describes the selected host server.
+The array uses the shared table fields. Original `clients`, `sessions` and
+`other_mosh_sessions` arrays remain available, and their existing client `state`
+values remain compatible. `other_ssh_sessions` adds the standalone SSH channels.
+In `entries`, `state` retains the process/attachment state, while `reachability`
+is always separate. Detached entries keep `transport: null` in JSON; the table
+displays their lowercase state in `VIA` instead. Every combined entry adds a `via`
+display label; the existing uppercase `transport`/`state` values remain compatible.
+Mosh arrays expose
+`network_last_rx_monotonic_ms`, the server's receive timestamp, and
+`network_last_seen_at`, its conversion to Unix time at observation. These fields
+remain `null` when telemetry is unavailable or no client packet has been received.
+
+Build and link the patched stock Mosh server on the receiving computer:
+
+```sh
+scripts/build-mosh.sh
+scripts/link.sh
+```
+
+The build uses the verified upstream 1.4.0 archive and only adds local status
+reporting. `~/.local/bin/mosh-server` points to the release binary. Stock Mosh
+clients, including the phone client, continue using the existing protocol. The
+normal `mosh` command discovers `mosh-server` through the remote shell's PATH;
+`mosh --server=/home/lewis/.local/bin/mosh-server HOST` selects it explicitly.
+Reconnect existing Mosh attachments to launch the new server. Their tmux sessions
+and applications can remain running.
+
+Each server listens on a private local Unix socket at
+`$XDG_RUNTIME_DIR/mosh-status/PID.sock`, normally under `/run/user/UID`, with a
+mode-0700 directory and mode-0600 socket. If the runtime directory is unavailable,
+it uses `/tmp/mosh-status-UID/PID.sock`. A query returns API version, server PID and
+the existing `last_heard` timestamp. Queries verify the peer's UID and PID, reject
+PID reuse and have a short timeout. The server replies only when queried; it adds
+no polling worker or per-packet file writes. Replayed and unauthenticated packets
+do not refresh the timestamp. This reporting runs only for `clients`; the sizing
+monitor continues using the existing login records.
+
+The `TMUX` rows cover only the selected socket, not other servers or VMs. A
+closed desktop window should lose its client on the next snapshot; a reopened
+window has a new attachment. No server restart is needed to use updated reporting.
+The old `tmux clients`, `tmux list` and `--manage-sizing` launcher syntax is
+replaced by the native session commands and this standalone helper.
+
+The same table includes this user's other live Mosh servers and incoming OpenSSH
+shell/command sessions on the current host,
+without duplicating those already represented by tmux rows. It works even when
+there is no tmux server at the selected socket. `OTHER-TMUX` sessions are not
+queried or managed; their label prevents mistaking them for standalone apps.
+
+Discovery reads current-user `/proc` metadata and reuses the Mosh login snapshot.
+It identifies the foreground process group rather than displaying a waiting shell
+or background job as the active app. SSH commands without a terminal show the
+session's initial command process instead. SSH identification requires a live
+`sshd`, `sshd-session`, or `sshd-auth` parent; an inherited SSH environment alone
+does not make a local process a remote login. Separate session channels under one
+SSH connection stay separate, and channels already hosting a listed tmux client
+are not duplicated. Outgoing SSH clients, unauthenticated daemon processes and
+forwarding-only connections without a shell/command are not listed.
+
+For SSH peers, discovery extracts only the validated address from the owned login
+process's `SSH_CONNECTION` variable, with a bounded read and PID-identity check.
+Unavailable or malformed metadata leaves `PEER` unknown. Other environment values
+are never displayed or retained; command arguments, terminal contents and clipboard
+data are not read. Missing, duplicate
+or mismatched login records never prove disconnection. Network contact is
+unavailable for SSH and unpatched Mosh rows; it is never inferred from process
+age or `who`'s terminal idle field. JSON adds `other_mosh_sessions` and
+`other_ssh_sessions` separately from
+tmux `clients`/`sessions`, and a `server_running` flag for the selected socket.
+One process snapshot supplies tmux app identification and Mosh/SSH discovery.
+The same snapshot supplies VM viewers; `other_opsec_sessions` adds previously
+unrepresented host-side viewers to JSON. Retyped records retain an
+`opsec_connection` object containing the outgoing SSH PID, target, requested
+workspace/action or explicit guest socket/target, and the resolved guest session
+name and server socket when available. Raw host `clients[].session` and
+`sessions[].name` retain their host identities; `entries[].session` is the
+displayed guest name for `opsec-tmux`. The unified schema stays consistent across
+all row types.
+It runs only for `clients`, not in the sizing monitor, and standalone remote sessions
+never participate in tmux sizing.
+
+Native `client-attached` and `after-new-session` hooks call `tmux-mosh ensure`.
+It starts one monitor per server if a Mosh client is detected. `ensure` performs
+the same check for an existing server; `start` explicitly starts it even without
+Mosh clients. Repeated calls reuse the monitor without restarting or detaching
+anyone. Startup errors are reported on stderr and in its private log; inventory
+remains independently usable. The helper defaults to the inherited `TMUX` socket
+inside a pane and the Fish socket outside it. `-S`/`--socket` selects a socket;
+`--tmux` selects the backend. The helper refuses unmarked servers. Native tmux
+itself has normal tmux behavior, without launcher restrictions on other servers.
+
+The monitor reads client/process metadata and stock Mosh login records every two
+seconds. With no Mosh clients, it checks inventory every five seconds and does
+not run `who`. It exits when its server disappears. No packet capture, probes,
+Mosh changes, phone update or root access is needed.
+
+When Mosh explicitly marks a client unreachable, the monitor sets its
+`ignore-size` flag. With another eligible viewer attached, the desktop expands
+without ending the phone connection or application. Reconnection clears only
+the monitor's flag. Manual flags and unrelated flags survive. Ownership is
+recorded in private user options for crash recovery; PID/start-time and server
+identity checks prevent stale updates targeting a replacement client/server.
+Unchanged polls do not write options or force redraw. The configured
+`window-size` policy is preserved.
+
+Stock Mosh normally marks a lost peer after about 30 seconds, followed by at most
+one polling interval. This is network reachability, not keyboard idle time or
+Android foreground/background state. A backgrounded Termux still sending traffic
+remains connected. Missing/ambiguous records show `UNKNOWN`, not `UNREACHABLE`,
+and do not cause new exclusions. Unavailable records clear previous automatic
+flags when identity can be verified. Requires Linux `/proc`, GNU `who`, and Mosh
+login-record support.
+
+Mode-0600 `.sizing.lock` and `.sizing.log` files live beside the socket. Unsafe
+paths are refused. The log records startup/runtime failures and is bounded at
+startup. Internal `@tmux-simple-*` option names remain compatible with running
+monitors; they are not a second command interface.
 
 ## Structure And Build
 
 ```text
-tmux-simple                     Python standard-library launcher
-tmux_clients.py                 Client inventory and automatic Mosh sizing monitor
-tmux-simple.conf                Symlink to ../config/tmux-simple/tmux.conf
-patches/0001-scroll-on-input.patch  Non-modal input option and patched version tag
-patches/0002-reliable-clipboard-delivery.patch  Selecting-client clipboard fix
-scripts/build.sh                Verify archive, apply patches, compile, link runtime
-scripts/link.sh                 Link tmux-simple, optionally tmux; refuse conflicts
-scripts/clipboard.sh            Selected text on stdin -> available desktop clipboard
-tests/workload.py               Synthetic terminal output; owned input/resize log
-tests/test_cli.py               CLI, lifecycle, installation, isolation checks
-tests/test_interaction.py       Input, selection, stock-Mosh integration checks
-tests/test_mosh_sizing.py       Client status, offline sizing and lifecycle checks
-tests/test_sizing.py            Active viewer, keyboard and portrait-height regressions
-tests/conftest.py               Isolated HOME/socket/PTY and loopback fixtures
-tests/oracles/vte.py            Real VTE observer under Xvfb, including alternate screen
-verification.json               Behaviour inventory, evidence and manual gaps
-build/                          Downloaded sources, release binaries and build logs
-artifacts/                      Local verification/diagnostic artifacts (not committed)
+tmux-simple/
+  tmux-mosh                     Standalone Mosh status/sizing command
+  tmux_clients.py               Inventory, identity guards and monitor implementation
+  client_tree.py                Inventory -> collapsible live tree / expanded snapshot
+  mosh_cleanup.py               Explicit packet-age cleanup with PID-safe signals
+  mosh_sessions.py              Current-user direct/other-Mosh process discovery
+  mosh_status.py                Private server API -> packet age and receive timestamp
+  ssh_sessions.py               Incoming SSH channels, app/peer metadata and deduplication
+  opsec_sessions.py             Foreground opsec VM viewers on the existing SSH route
+  tmux-simple.conf              Symlink to ../config/tmux-simple/tmux.conf
+  pyproject.toml                Local uv test dependencies and tooling settings
+  uv.lock                       Locked Python test dependencies
+  patches/
+    0001-scroll-on-input.patch  Nonmodal input option and patched version tag
+    0002-reliable-clipboard-delivery.patch  Selecting-client clipboard fix
+    0003-application-clipboard-delivery.patch  Application OSC 52 + desktop helper
+    0004-explicit-selection-copy.patch  Preserve a selection for explicit Ctrl+C
+    0005-active-sizing-reporting.patch  Report which viewer controls the size
+    0006-native-resize-behavior.patch  Identify the native-resize rollback release
+    0007-reading-position.patch  Keep the visible history text anchored on resize
+  mosh/
+    last-received.patch         Expose the existing server receive timestamp
+    server-status.h             Private, nonblocking Unix socket status reply
+  scripts/
+    build.sh                    Verify archive, apply patches, compile, link runtime
+    build-mosh.sh               Verify upstream Mosh, apply status patch, build release
+    link.sh                     Link tmux, tmux-mosh, helpers and the Mosh fork commands
+    clipboard.sh                Selection on stdin -> available desktop clipboard
+    attach-environment.sh       Owned client environment -> session display variables
+  tests/
+    conftest.py                 Private HOME/socket/PTY and loopback fixtures
+    terminal_harness.py         Local PTY driver and VTE/Termux emulator interface
+    loopback_harness.py         Compatibility-fork loss/outage/roaming transport fixtures
+    workload.py                 Synthetic output and owned input/resize log
+    test_cli.py                 Native CLI, lifecycle and installation checks
+    test_fork_policy.py         Reject distro/PATH binaries as current fork references
+    test_compat_cli.py          Native create-or-attach and argument semantics
+    test_config.py             Config loading, persistence and safe installers
+    test_attach_hooks.py       Display preservation, Mosh hooks and Fish arguments
+    test_interaction.py        Typing, mouse, selection and stock-Mosh behavior
+    test_mosh_sizing.py         Status, offline sizing and lifecycle safety
+    test_mosh_status.py         Release-server packet age, outages, replay and API validation
+    test_mosh_cleanup.py        Age cutoffs, safe signalling, reconnects and retained tmux apps
+    test_client_inventory.py    Detached sessions, activity, origins and XFCE close
+    test_inventory_table.py     Unified rows, shared columns and foreground app PIDs
+    test_client_tree.py         Grouping, folds, clicks, refresh/resize and terminal cleanup
+    test_process_details.py     Bounded foreground argv and read-only PTY size queries
+    test_app_identity.py        Pi runtime labels and foreground child/launcher identity
+    test_opsec_inventory.py     VM viewer types, routes, origins and duplicate prevention
+    test_opsec_session_names.py Actual guest names, workspace aliases and safe query failures
+    test_standalone_mosh.py      Direct apps, foreground identity and Mosh deduplication
+    test_standalone_ssh.py       SSH channels, missing metadata and tmux deduplication
+    test_sizing.py             Active viewer and keyboard/portrait-height regressions
+    reading_position_workload.py  Synthetic short/wrapped/Unicode history records
+    test_reading_position.py   Reading anchors, real Fish and viewport bounds
+    test_native_resize.py      Guard the narrow copy-mode patch and native parser
+    test_hyperlinks.py         Real VTE/XFCE widget file-link regressions
+    test_test_infrastructure.py  Local dependency and emulator smoke checks
+    oracles/vte.py             Headless VTE viewport observer
+    oracles/prepare_termux.py  Fetch pinned Termux emulator and compile test host
+    oracles/java/              Headless test host and Android API adapters
+  verification.json             Behavior inventory and evidence
+  build/                        Sources, release binaries, build logs (ignored)
+  artifacts/                    Verification/diagnostic evidence (ignored)
+../config/tmux-simple/
+  tmux.conf                     Canonical interaction settings
+  integration.conf              Attachment hooks and selective environment updates
+  tmux.fish                     Existing-socket default; otherwise native arguments
+  link.sh                       Install config/Fish symlinks; refuse foreign files
 ```
 
-Run in this order:
+Keep the source/config repositories beside each other. Run in this order:
 
 ```sh
 scripts/build.sh
+scripts/build-mosh.sh
 scripts/link.sh
+bash ../config/tmux-simple/link.sh
 ```
 
-Build inputs are the pinned tmux 3.7c archive and the numbered patches, applied in
-filename order. Requires a compiler,
-make, autoconf, automake, pkg-config, ncurses/libevent development files, curl,
-tar and patch. Output is a fresh `build/release.XXXXXX/tmux` and SHA-256 manifest;
-only a successful build updates `build/runtime/tmux`. Installation creates a
-symlink, never overwrites system tmux/Mosh or removes an older build. Runtime
-requires Bash, Python 3.12+ standard library and the built tmux binary.
+Build inputs are the pinned tmux 3.7c archive and numbered patches, applied in
+filename order. Requires compiler, make, autoconf, automake, pkg-config,
+ncurses/libevent development files, curl, tar and patch. Output is a fresh
+`build/release.XXXXXX/tmux` and SHA-256 manifest. Only a successful build changes
+`build/runtime/tmux`. Runtime uses Bash, Python 3.12+ standard library, the built
+binary, and optionally `wl-copy`/`xclip` for desktop clipboard delivery.
 
-To make `tmux` invoke this simplified launcher as well, run
-`scripts/link.sh --as-tmux`. Both names are symlinks to the same launcher, and
-both destinations are checked for conflicts before either is installed. Keep
-`~/.local/bin` before system directories in PATH. This is the simplified CLI
-(`tmux attach NAME --existing`, `tmux list`), plus `new-session [-A] -s NAME`
-compatibility, not a drop-in implementation of
-every vanilla tmux command or option; tools such as `fzf --tmux` that invoke
-the native CLI need the explicit backend executable instead. The backend is
-`build/runtime/tmux` and is independent of the distribution's tmux package.
-The installer does not remove that package, stop servers, or migrate sessions.
+The installer symlinks `~/.local/bin/tmux` directly to `build/runtime/tmux`, adds
+`~/.local/bin/tmux-mosh`, and links clipboard/attachment helpers and integration
+config under `~/.local/libexec/tmux/`. After the compatibility Mosh build, it also
+symlinks `mosh`, `mosh-client` and `mosh-server` to that build's launcher and binaries.
+It removes only this project's old
+`tmux-simple` command symlink. All destinations are preflighted; foreign files
+or links are refused, not overwritten. Keep `~/.local/bin` ahead of system
+commands in PATH. It never copies binaries, removes packages, stops servers or
+migrates applications. There is no `--as-tmux` option.
 
-### Configuration
+## Configuration
 
-The authoritative settings file is `../config/tmux-simple/tmux.conf` in the
-config repository. This project's `tmux-simple.conf` is a relative symlink to
-that same file, not a second copy. Keep the two repositories beside each other
-when using that fallback.
+The authoritative file is `../config/tmux-simple/tmux.conf`. This project's
+`tmux-simple.conf` is a relative symlink, not a second copy. The config installer
+links `~/.tmux.conf`, the compatibility pointer
+`$XDG_CONFIG_HOME/tmux-simple/tmux.conf`, and
+`$XDG_CONFIG_HOME/fish/functions/tmux.fish`. An empty/relative `XDG_CONFIG_HOME`
+uses `~/.config`. `bootstrap.sh` invokes the same installer. Managed legacy links
+can be replaced; foreign files/links are refused. Archived vanilla settings in
+`../config/legacy/tmux/tmux.conf` remain untouched.
 
-`bash ../config/tmux-simple/link.sh` installs
-`$XDG_CONFIG_HOME/tmux-simple/tmux.conf` (normally
-`~/.config/tmux-simple/tmux.conf`) as a symlink to the canonical file. The config
-repository's `bootstrap.sh` invokes the same helper. Conflicting files or links
-are refused, not overwritten; only its old `~/.tmux.conf` link is retired.
+Native tmux loads `~/.tmux.conf` when starting a server; `-f FILE` selects another
+config. Creating/attaching sessions on an existing server does not reload it.
+`set-titles on` forwards the active pane's title to each viewing terminal with
+its current session name. The bounded, acyclic `@codex-title-*` formats use
+tmux's own format engine, never per-frame `#()` subprocesses, to produce
+`tmux: diet - codex: ~/tasks/diet - Conversation title - Terminal` in XFCE4
+Terminal. A braille spinner or attention marker appears immediately before the
+directory. The real pane directory replaces Codex's abbreviated project label;
+both legacy `task | project` titles and newer
+`terminal_title = ["app-name", "activity", "current-dir", "thread-title"]`
+selections are supported without restarting Codex. Non-Codex titles are
+forwarded with the session prefix. All forwarded titles replace ` | ` separators
+with ` - ` while preserving the underlying pane title, activity and session
+renames. The hidden status bar and mouse/key bindings are unaffected.
 
-When starting a new server, the launcher prefers the user config above and
-otherwise follows the project symlink. An empty or relative `XDG_CONFIG_HOME`
-uses `~/.config`. A broken user config link is an error, not a silent fallback.
-Attaching or creating a session in an existing server neither rereads the file
-nor changes that server's settings. No reload or restart is performed during
-installation. Vanilla tmux settings are archived in
-`../config/legacy/tmux/tmux.conf` and are never loaded by this launcher.
+Installation alone does not reconfigure/restart servers. To enable only the new
+hooks on an existing patched server without rebinding controls:
 
-The patches add an opt-in `scroll-on-input` setting and prevent selection-copy
-effects being discarded with a pending screen redraw. It sends an explicit `c`
-clipboard selector for stock Mosh. The stock tmux renderer, history grid, PTYs,
-session lifecycle and Mosh wire protocol are retained. No native-history export,
-new transport, custom Mosh client/server, or general byte-stream proxy is used.
+```sh
+tmux source-file ~/.local/libexec/tmux/integration.conf
+tmux-mosh ensure
+```
+
+The integration fragment removes `DISPLAY`, `WAYLAND_DISPLAY`, and `XAUTHORITY`
+from the variables tmux normally updates/unsets on attachment. Its short Bash
+hook reads nonempty values from the owned attaching client's `/proc` environment
+and updates only its session, after checking the PID/session pair in the server.
+Desktop attachments refresh display access; phone attachments lacking it do not
+erase it. Other environment updates, including `SSH_AUTH_SOCK`, retain normal
+tmux behavior. `copy-command` invokes the symlinked clipboard helper without a
+launcher-specific environment variable. Hyperlink support stays in `tmux.conf`.
+
+The existing C patches, tmux renderer/history grid, PTYs, session lifecycle and
+Mosh wire protocol are unchanged by the launcher removal. No native-history
+export, new transport or custom Mosh client/server is used.
 
 ## Verification
 
-The local suite reuses the independent terminal and loopback harnesses in the
-sibling `tmux-native` and `mosh-native` projects, not their patched executables.
-Prepare the pinned headless Termux emulator in `tmux-native` if absent, then link
-its `build/termux/classes` into this project's `build/termux/classes`. Tests need
-the sibling uv test environment, Java, Xvfb and system Python with GTK3/VTE bindings.
+The terminal and loopback harnesses live in this repository. Tests use a local
+uv environment and stock Mosh; neither retired native-history project is needed.
+System prerequisites are Java, Xvfb, stock Mosh, and system Python with GTK3/VTE.
+Real XFCE clipboard checks also need D-Bus, xdotool, and the built terminal fork.
+The preparation command fetches the pinned upstream Termux emulator and compiles
+the local Java test host into `build/termux/classes`; source provenance and the
+upstream license are retained in `build/termux`. Run preparation once, or after
+removing that cache. Build the terminal fork's `test-terminal-links` target first;
+`TEST_XFCE_LINKS` can override the oracle path.
 
 ```sh
-../tmux-native/.venv/bin/python -m pytest -q tests
-shellcheck scripts/*.sh
-shfmt -d -i 4 scripts/*.sh
+UV_CACHE_DIR=/data/.cache/uv uv sync --locked
+UV_CACHE_DIR=/data/.cache/uv uv run --locked python tests/oracles/prepare_termux.py
+UV_CACHE_DIR=/data/.cache/uv uv run --locked python -m pytest -q
+shellcheck scripts/*.sh ../config/tmux-simple/link.sh
+shfmt -d -i 4 scripts/*.sh ../config/tmux-simple/link.sh
+fish --no-config -n ../config/tmux-simple/tmux.fish
 ```
 
-Network tests run `/usr/bin/mosh-client` and `/usr/bin/mosh-server` on loopback
-only, with synthetic output, loss/duplication/outage simulation, disposable
-sessions and isolated HOME/XDG directories. Clipboard tests use emulator state
-or a fake clipboard executable. They never read or write the real clipboard,
-contact a phone, scan a network, or attach to a real tmux/Codex session.
-
-Sizing tests drive two real private tmux clients with synthetic Mosh login and
-process metadata. They verify 100x30 -> 40x16 -> 100x30 -> 40x16 transitions with
-both clients and the same application PID preserved, crash/reconnect recovery,
-manual flags, unknown records, singleton startup, and server/client identity
-guards. A temporary binary utmp fixture is also read by the real GNU `who`;
-tests never modify `/run/utmp` to simulate phone connectivity.
-
-The initial release in `build/release.BnU6TU` passed all 33 tests, with no skips, on
-2026-09-26. ShellCheck, shfmt and Ruff checks passed. The build emitted seven
-const-qualifier warnings in unchanged upstream files, but no errors. Reports,
-the stock-tmux typing regression and development failures are retained under
-`artifacts/`; `verification.json` records their scope and the release hash.
-
-File-link regressions additionally use the real forked `TerminalWidget` under
-Xvfb and a private D-Bus session. Build its `test-terminal-links` target first;
-`TEST_XFCE_LINKS` can override the test executable path. Normal application
-opens and file-manager selection URIs go to temporary recorders, not the real
-desktop. The tests cover encoded file links, plain absolute/relative paths,
-allowlist refusal, an unresponsive private server, history and reattachment.
-The updated launcher/configuration passed all 39 tests, including six link
-cases, with no skips. The fork's existing key, mouse and regex suites also
-passed. Reports are `artifacts/hyperlinks-release-final.xml`,
-`artifacts/hyperlinks-focused-final.xml` and
-`artifacts/hyperlinks-xfce-suite-final.txt`; tested executable hashes are in
-`artifacts/hyperlinks-installed.sha256`.
-
-On 2026-09-27, the Mosh sizing update passed all 89 tests with no skips, including
-19 focused client-status/sizing tests, using the same release backend. Ruff lint
-and formatting checks passed. Reports are
-`artifacts/mosh-sizing-release-verified.xml` and
-`artifacts/mosh-sizing-lifecycle.xml`; installed file hashes are in
-`artifacts/mosh-sizing-installed.sha256`. No live session was reconfigured or
-used for these tests. Enable monitoring for an existing server with
-`tmux clients` or `tmux list`; future Mosh attachments enable it automatically.
-
-The follow-up default-activation change passed all 92 tests, including 22 focused
-sizing cases. `clients`, `clients --json`, and `list` were each tested without
-the old opt-in flag; startup failures still allow inventory output. Reports are
-`artifacts/default-sizing-release.xml` and `artifacts/default-sizing-focused.xml`;
-file hashes are in `artifacts/default-sizing-installed.sha256`.
-
-Active-viewer sizing passed all 95 tests, including direct and stock-Mosh
-portrait-phone regressions with a 141x65 desktop and an 86x95 phone. The tests
-cover repeated keyboard-size changes during history browsing, switching input
-between viewers, and offline/reconnect handling under both `latest` and
-`smallest`. Reports are `artifacts/active-sizing-release.xml` and
-`artifacts/active-sizing-focused.xml`; hashes are in
-`artifacts/active-sizing-installed.sha256`. The original smaller-height failure
-is retained in `artifacts/active-sizing-red.xml`.
-
-On 2026-09-30, the clipboard change was separated into patch 0002 for review.
-The two patches concatenate to the previous combined patch byte-for-byte. A
-fresh private build using the updated build script matched all four patched
-source files in the installed release and passed all 95 tests with no skips.
-Reports are `artifacts/clipboard-commit-release.xml` and
-`artifacts/clipboard-commit-release.txt`; the build log is
-`artifacts/clipboard-commit-build.txt`. ShellCheck, shfmt, Bash syntax and Ruff
-checks passed. The installed runtime symlink and running sessions were unchanged.
+Tests use private HOME/XDG directories, tmux sockets, synthetic workloads, fake
+clipboard executables, headless VTE/Termux observers and stock Mosh on loopback.
+They exercise create/reattach without process replacement, mouse headers,
+retained-history copying, desktop display preservation, native hooks, singleton
+monitor startup, offline/reconnect sizing, unsafe paths and stale identities.
+Real GNU `who` reads a temporary utmp fixture; `/run/utmp` is never modified.
+File opens/manager requests go to isolated recorders, not real desktop apps.
+No test contacts a phone, scans a network, changes the real clipboard, or drives
+a live tmux/Codex session. `verification.json` records current and historical
+results, release hashes, retained failed runs and manual gaps.
 
 ## Limits And Security
 
-This is a trial, not a guarantee of native terminal equivalence. The retained
-history is remote and limited to 100,000 rows. Browsing it needs connectivity;
-application alternate-screen repaints are not a complete output transcript.
-Stock Mosh sends screen state, so a fresh attachment's **native** scrollback may
-still contain only one screen: use wheel/swipe to request remote history instead.
-See [Mosh's scrollback explanation](https://mosh.org/#faq).
+This is not a guarantee of native terminal equivalence. Remote history is
+limited to 100,000 rows; browsing needs connectivity. Alternate-screen repaints
+are not a complete transcript. A fresh Mosh attachment's native scrollback can
+contain only one screen; wheel/swipe requests remote history instead.
 
-Mouse gestures in real XFCE and the installed Termux app, keyboard animations,
-real roaming, long sessions, unusual terminal extensions and large Unicode
-selections still need manual validation. The GUI tests observe VTE under Xvfb
-and the pinned Termux emulator, not the phone's Android UI.
+Actual XFCE/Termux gestures, Android keyboard animations, clipboard permissions,
+real roaming, long sessions and unusual terminal extensions remain manual checks.
+The headless Termux observer is not the phone's Android UI.
 
-Clipboard writes are enabled, including application OSC 52, as in the native
-trial. Treat untrusted terminal output accordingly. The desktop helper can
-update the host clipboard when a selection is made from another attachment;
-this is intentional clipboard sharing, not clipboard isolation. See
-[tmux's clipboard documentation](https://github.com/tmux/tmux/wiki/Clipboard).
+Clipboard writes are enabled, including application OSC 52. Treat untrusted
+terminal output accordingly. The desktop helper can update the host clipboard
+when selecting from another attachment: intentional sharing, not isolation.
+OSC 52 delivery still requires terminal capability and permission.
 
-To stop using this trial, leave its attachments and return to the existing
-commands. No rollback of global configuration is required. Existing
-`tmux-native` sessions remain separate; they are not adopted or killed.
+Changing symlinks never migrates a running program. Keep an old patched binary
+available until its servers exit if switching backends. Project/test-infrastructure
+cleanup does not attach to or terminate running sessions.

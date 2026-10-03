@@ -1,9 +1,9 @@
 {
-  "product": "tmux-simple",
+  "product": "tmux",
   "version": "0.1.0",
   "upstream": "tmux 3.7c",
   "upstream_sha256": "7c60cae9a0e25288e2e24750aafc9e8800fc7fd4555e447e1b29ee4201cfb3bf",
-  "transport": "unmodified /usr/bin/mosh-client and /usr/bin/mosh-server 1.4.0",
+  "transport": "Our compatibility Mosh build (ordinary wire protocol, rx-status1 server); host mosh/mosh-client/mosh-server commands are fork symlinks. Mosh-native remains the separate native-history transport.",
   "requirements": [
     {
       "id": "INPUT-1",
@@ -13,8 +13,8 @@
     },
     {
       "id": "COPY-1",
-      "contract": "Selection release copies without moving the viewport; OSC 52 survives redraw",
-      "test": "tests/test_interaction.py::test_selection_release_keeps_position_and_copies",
+      "contract": "Mouse gestures only select; explicit Ctrl+C copies without clearing selection or moving the viewport; OSC 52 survives redraw",
+      "test": "tests/test_interaction.py::test_selection_only_copies_on_ctrl_c_and_keeps_position",
       "red": "artifacts/interaction-second.txt"
     },
     {
@@ -44,12 +44,12 @@
     },
     {
       "id": "CLI-1",
-      "contract": "Help, version, list, attach, existing-only, detach and confirmed kill; invalid invocations preserve sessions",
+      "contract": "tmux is the patched native binary, not a Python launcher; native session/client/window commands, aliases, version and argument semantics work directly",
       "test_file": "tests/test_cli.py"
     },
     {
       "id": "ISOLATE-1",
-      "contract": "Foreign servers and conflicting installation paths are not modified",
+      "contract": "Installers refuse foreign paths before changing links; Mosh helper refuses unmarked or unsafe servers; native tmux retains its standard server-selection semantics",
       "test_file": "tests/test_cli.py"
     },
     {
@@ -64,7 +64,7 @@
     },
     {
       "id": "LINK-1",
-      "contract": "OSC 8 file targets survive drawing, history and reattachment to a server with the old terminal-feature configuration",
+      "contract": "Config advertises hyperlink support; OSC 8 file targets survive drawing, retained history and native reattachment",
       "test": "tests/test_hyperlinks.py::test_osc8_file_links_survive_rendering_and_reattach",
       "red": "artifacts/hyperlinks-osc8-red-2.txt"
     },
@@ -81,7 +81,7 @@
     },
     {
       "id": "CONFIG-1",
-      "contract": "New servers prefer the XDG tmux-simple config, fall back to the project symlink, and never read vanilla config; invalid user configs fail visibly",
+      "contract": "Native tmux loads the canonical config through ~/.tmux.conf; -f retains native configuration selection; no launcher-specific config lookup",
       "test": "tests/test_config.py::test_launcher_uses_configured_file_and_ignores_vanilla_config",
       "red": "artifacts/config-migration-red.xml"
     },
@@ -92,7 +92,7 @@
     },
     {
       "id": "CONFIG-3",
-      "contract": "Bootstrap installs a canonical config symlink idempotently, refuses conflicts, and retires only this repository's old vanilla config link",
+      "contract": "Bootstrap installs canonical native config and Fish symlinks idempotently, preserves archives and refuses foreign files before changes",
       "test": "tests/test_config.py::test_config_installer_retires_only_managed_legacy_links"
     },
     {
@@ -103,9 +103,29 @@
     },
     {
       "id": "CLIENTS-1",
-      "contract": "clients and clients --json list session, transport, reachability, peer, geometry and sizing participation without creating a server; existing servers automatically gain the sizing monitor",
+      "contract": "tmux-mosh clients [--json] lists session, transport, reachability, peer, geometry and sizing read-only; it creates neither a server nor a monitor",
       "test_file": "tests/test_mosh_sizing.py",
       "red": "artifacts/mosh-sizing-red.xml"
+    },
+    {
+      "id": "CLIENTS-2",
+      "contract": "Timestamped read-only inventory includes detached sessions and control clients, separates process attachment from Mosh reachability, reports existing tmux activity timestamps without claiming network contact, and distinguishes SSH/local/unknown ancestry; closing a real private XFCE window removes the client without stopping its session or program",
+      "test_file": "tests/test_client_inventory.py"
+    },
+    {
+      "id": "CLIENTS-3",
+      "contract": "Read-only inventory includes this user's direct-app Mosh sessions even without a selected tmux server, uses foreground process groups instead of background jobs, deduplicates represented Mosh clients, labels other-tmux connections, and does not invent reachability or activity from stale login records",
+      "test_file": "tests/test_standalone_mosh.py"
+    },
+    {
+      "id": "CLIENTS-4",
+      "contract": "One shared table and additive JSON entries array covers local/SSH/Mosh tmux clients, detached sessions and direct/other-tmux Mosh; active-pane foreground app PIDs remain distinct from Mosh server PIDs, unavailable fields stay unknown, and one process snapshot supplies all app discovery",
+      "test_file": "tests/test_inventory_table.py"
+    },
+    {
+      "id": "CLIENTS-5",
+      "contract": "SIZING identifies the actual native latest-policy controller per current window as active, distinguishes eligible standby and ignored viewers, transfers on input even for equal-sized viewers, preserves native policy/fallback behavior, and reports unknown on old servers without changing live sizing or restarting sessions",
+      "test_file": "tests/test_active_sizing.py"
     },
     {
       "id": "SIZING-1",
@@ -119,40 +139,134 @@
     },
     {
       "id": "SIZING-3",
-      "contract": "Automatic Mosh detection or ordinary clients/list starts one bounded-polling helper per private server; unchanged polls do not redraw and server replacement, unsafe lock paths and PID reuse cannot redirect updates",
+      "contract": "Native attachment hooks or explicit tmux-mosh ensure/start launch one bounded-polling helper; unchanged polls do not redraw, and server replacement, unsafe lock paths and PID reuse cannot redirect updates",
       "test_file": "tests/test_mosh_sizing.py"
     },
     {
-      "id": "DEFAULT-SIZING-1",
-      "contract": "Ordinary clients, clients --json and list activate singleton sizing without an opt-in flag; existing attachments, applications and geometry survive; startup failures warn but inventory still works; --manage-sizing remains compatible",
-      "test_file": "tests/test_mosh_sizing.py",
-      "red": "artifacts/default-sizing-red.xml"
+      "id": "NATIVE-HOOKS-1",
+      "contract": "client-attached and after-new-session automatically ensure Mosh sizing without a command launcher; repeated calls reuse one monitor and status remains independently usable on startup failure",
+      "test_file": "tests/test_attach_hooks.py"
     },
     {
       "id": "SIZING-4",
       "contract": "A portrait phone taller than the desktop uses its own full height when active; keyboard close and history browsing restore full height; desktop/phone input switches the shared size without restarting programs, directly and over stock Mosh",
       "test_file": "tests/test_sizing.py",
       "red": "artifacts/active-sizing-red.xml"
+    },
+    {
+      "id": "ENV-HOOK-1",
+      "contract": "Owned client display environment updates only its current session; phone or empty display values do not erase desktop clipboard access, other tmux environment updates remain active, and quoted values cannot inject commands",
+      "test_file": "tests/test_attach_hooks.py"
+    },
+    {
+      "id": "FISH-CLI-1",
+      "contract": "Fish adds only the existing private socket default, creates an owned mode-0700 directory if absent, refuses unsafe paths, and preserves all arguments and explicit/inherited server selection",
+      "test_file": "tests/test_attach_hooks.py"
+    },
+    {
+      "id": "INTEGRATION-1",
+      "contract": "Reloading only the integration fragment preserves unrelated bindings, options, server/pane identities and running program input",
+      "test_file": "tests/test_config.py"
+    },
+    {
+      "id": "COPY-3",
+      "contract": "Application-owned OSC 52 selections reach the configured desktop helper using refreshed session display variables and only the interacting viewer; bare Pi and write-only wrapped Codex requests respect set-clipboard policy without enabling general passthrough or wrapped reads",
+      "test_file": "tests/test_application_clipboard.py",
+      "red": "artifacts/application-clipboard-red.txt"
+    },
+    {
+      "id": "COPY-4",
+      "contract": "Actual XFCE Ctrl+C events with menus shown or hidden deliver application-owned clipboard fixtures through a fresh patched server to a private X11 clipboard, even when the application started without a desktop display",
+      "test": "tests/test_application_clipboard.py::test_real_xfce_keypress_copies_application_selection"
+    },
+    {
+      "id": "TEST-INFRA-1",
+      "contract": "Terminal and stock-Mosh loopback harnesses resolve inside tmux-simple; Termux classes are built locally rather than linked to a sibling project; each emulator renders a synthetic fixture without needing retired projects",
+      "test_file": "tests/test_test_infrastructure.py",
+      "red": "artifacts/local-test-infrastructure-red.txt"
+    },
+    {
+      "id": "COPY-5",
+      "contract": "Real Codex transcript selection followed by Ctrl+C delivers exactly the synthetic selected text through tmux without a desktop clipboard environment, release-time copy, user data or model requests",
+      "test": "tests/test_codex_clipboard.py::test_real_codex_transcript_selection_copies_without_a_desktop_environment"
+    },
+    {
+      "id": "MOSH-CLEANUP-1",
+      "contract": "Explicit cleanup requests SIGTERM only for current-user Mosh servers with verified packet age at or above 30 seconds; recheck freshness and PID identity, keep tmux programs, skip unavailable timestamps, and provide a signal-free preview",
+      "test_file": "tests/test_mosh_cleanup.py"
+    },
+    {
+      "id": "MOSH-CLEANUP-LEGACY-1",
+      "contract": "Explicit opt-in can close old Mosh servers marked UNREACHABLE using verified login PTY/process identity and a fresh flag recheck; no invented packet age, no arbitrary timeout guarantee, and no connected/new/unknown legacy cleanup",
+      "test_file": "tests/test_mosh_cleanup.py"
+    },
+    {
+      "id": "VIA-LABELS-1",
+      "contract": "Display lowercase mosh/ssh or local terminal application with terminal PID in parentheses; retain structured transport compatibility and do not add process scans",
+      "test_file": "tests/test_inventory_table.py"
+    },
+    {
+      "id": "TABLE-CASE-1",
+      "contract": "Client-table column headers stay uppercase and every rendered value is lowercase without changing original identifiers or structured JSON",
+      "test_file": "tests/test_inventory_table.py"
+    },
+    {
+      "id": "COMPACT-INVENTORY-1",
+      "contract": "Fold app PID into APP and Mosh server PID into VIA, remove separate PID/link columns, preserve raw JSON fields and show coarse link only as an inline fallback when exact IDLE is unavailable",
+      "test_file": "tests/test_inventory_table.py"
+    },
+    {
+      "id": "COMMAND-SIZE-1",
+      "contract": "Report the foreground app current command on all inventory rows, with compact default and full verbose/JSON views, without changing identifier case in JSON or sampling additional process snapshots",
+      "test_file": "tests/test_process_details.py"
+    },
+    {
+      "id": "DIRECT-SIZE-1",
+      "contract": "Show direct Mosh/SSH and other-tmux PTY dimensions as columns x rows with read-only queries, refresh after resize, and retain existing individual tmux client geometry",
+      "test_file": "tests/test_standalone_mosh.py"
+    },
+    {
+      "id": "OPSEC-VIEWERS-1",
+      "contract": "Show current-user foreground VM terminal attachments as opsec-tmux in the host table, with actual host transport/app/geometry and no duplicate host tmux or remote rows",
+      "test_file": "tests/test_opsec_inventory.py"
+    },
+    {
+      "id": "OPSEC-SESSION-NAME-1",
+      "contract": "Resolve the actual guest session through one bounded query via an existing owned SSH master, never boot a VM/open TCP/create tmux servers, retain rows with a warning on failure or ambiguity",
+      "test_file": "tests/test_opsec_session_names.py"
+    },
+    {
+      "id": "APP-IDENTITY-1",
+      "contract": "APP shows pi-opsec for verified VM Pi viewers and pi for a verified foreground Pi runtime/child instead of Bash, with accurate host PIDs and retained raw executable/argv metadata",
+      "test_file": "tests/test_app_identity.py"
+    },
+    {
+      "id": "READING-1",
+      "contract": "Preserve the top visible logical history position through repeated terminal resizing while browsing copy mode, including selection/copy and temporary oversized viewports; scrolling selects a new position and live-bottom behavior remains native.",
+      "test_file": "tests/test_reading_position.py"
     }
   ],
   "results": {
-    "status": "passed automated release verification; actual device UI untested",
-    "release": "build/clipboard-package-check.egzgu9/build/release.KUKGeW/tmux",
-    "release_sha256": "9981a503518daeca00c6c9b9fd7d43b8a4a0ee40ae2d324e1fc182d35cbfd8ae",
+    "status": "Passed native-command migration and isolated release verification; actual device UI untested",
+    "release": "build/release.BnU6TU/tmux",
+    "release_sha256": "5245bed1b44ff7654ccdd266ea1ccb421e5dd7905ca66d4cae8491eec846cf9f",
     "pytest": {
-      "passed": 95,
+      "passed": 101,
       "failed": 0,
       "skipped": 0,
-      "seconds": 100.85,
-      "report": "artifacts/clipboard-commit-release.xml",
-      "log": "artifacts/clipboard-commit-release.txt"
+      "seconds": 100.21,
+      "report": "artifacts/native-complete.xml",
+      "log": "artifacts/native-complete.txt"
     },
     "static": [
-      "shellcheck scripts/*.sh",
-      "shfmt -d -i 4 scripts/*.sh",
-      "bash -n scripts/build.sh",
-      "ruff check --isolated --select E4,E7,E9,F,I tmux-simple tmux_clients.py tests",
-      "ruff format --check tmux-simple tmux_clients.py tests"
+      "shellcheck scripts/*.sh ../config/tmux-simple/link.sh passed",
+      "shfmt -d -i 4 scripts/*.sh ../config/tmux-simple/link.sh passed",
+      "fish syntax and fish_indent checks passed",
+      "ruff check --isolated --select E4,E7,E9,F,I tmux-mosh tmux_clients.py tests passed",
+      "ruff format --check tmux-mosh tmux_clients.py tests passed",
+      "git diff --check passed",
+      "bootstrap retains exactly its 43 baseline ShellCheck findings",
+      "XFCE test oracle rebuilt; pre-existing C formatting findings outside edited lines remain"
     ],
     "compiler": "7 const-qualifier warnings in unmodified upstream files; no errors",
     "retained_development_failures": [
@@ -256,6 +370,14 @@
         "seconds": 103.86,
         "report": "artifacts/active-sizing-release.xml",
         "log": "artifacts/active-sizing-release.txt"
+      },
+      {
+        "passed": 95,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 100.85,
+        "report": "artifacts/clipboard-commit-release.xml",
+        "log": "artifacts/clipboard-commit-release.txt"
       }
     ],
     "config_migration": {
@@ -413,7 +535,778 @@
         "path": "patches/0002-reliable-clipboard-delivery.patch",
         "sha256": "ff4281fe471257ce9462fbfcaf2f91c92d593dbb7b83556ce11aba4771cfccc2"
       }
-    ]
+    ],
+    "native_previous_release": {
+      "release": "build/clipboard-package-check.egzgu9/build/release.KUKGeW/tmux",
+      "sha256": "9981a503518daeca00c6c9b9fd7d43b8a4a0ee40ae2d324e1fc182d35cbfd8ae"
+    },
+    "native_migration": {
+      "date": "2026-09-30",
+      "status": "Installed native command links, standalone helper, config and integration hooks",
+      "entrypoint": "~/.local/bin/tmux -> /home/lewis/Dev/tmux-simple/build/runtime/tmux",
+      "helper": "~/.local/bin/tmux-mosh -> /home/lewis/Dev/tmux-simple/tmux-mosh",
+      "removed": "Python tmux-simple launcher and its installed command alias",
+      "config": "~/.tmux.conf -> /home/lewis/Dev/config/tmux-simple/tmux.conf",
+      "fish": "~/.config/fish/functions/tmux.fish -> /home/lewis/Dev/config/tmux-simple/tmux.fish",
+      "artifact_manifest": "artifacts/native-installed.sha256",
+      "backup": "artifacts/native-migration-before.nIVXBX",
+      "activation": "Applied only integration.conf to existing server PID 2512971; pane IDs/PIDs unchanged, no applications restarted or live input injected; existing singleton sizing monitor preserved",
+      "identity_evidence": [
+        "artifacts/native-activation-panes-before.txt",
+        "artifacts/native-activation-panes-after.txt"
+      ],
+      "verification_scope": "101 tests on the installed release binary with private HOME/XDG and tmux sockets, headless terminal observers, fake clipboard executables, isolated file handlers, synthetic status records and stock Mosh on loopback",
+      "focused": {
+        "passed": 43,
+        "report": "artifacts/native-focused.xml",
+        "log": "artifacts/native-focused.txt"
+      },
+      "retained_development_failures": [
+        "Hook initially shell-expanded session ID $0; replaced formatted shell arguments with tmux q quoting (native-focused-first.xml)",
+        "Obsolete XFCE harness TEST_TMUX_SIMPLE assertion rejected native invocation before exercising links; removed launcher-specific check and rebuilt oracle (native-release.xml)",
+        "Read-only show-hooks verification initially passed two hook names to a single-name command; repeated with one name per call after successful activation"
+      ],
+      "limitations": "No real phone gestures, desktop clipboard or live session interaction was tested; clipboard policies and stock-Mosh status detection limitations remain"
+    },
+    "local_test_infrastructure": {
+      "verified_at": "2026-09-30T17:02:41Z",
+      "python": "3.12.12",
+      "test_environment": "project-local uv environment with locked pytest/ruff dev dependencies; no tmux-native package",
+      "migration": "Moved pinned Termux sources/classes, license and provenance; copied local PTY harness, Java adapters/preparation command; extracted stock-Mosh loopback fixture",
+      "removed": [
+        "/home/lewis/Dev/tmux-native",
+        "/home/lewis/.local/bin/tmux-native",
+        "/home/lewis/.local/share/tmux-native"
+      ],
+      "retired_archive": "/trash/tmux-native-retired.5KD285",
+      "smoke": "5 passed; artifacts/local-test-infrastructure-green.txt",
+      "full_suite": {
+        "passed": 128,
+        "failed": 0,
+        "seconds": 140.32,
+        "release": "3.7c-simple2",
+        "release_sha256": "5b31b019c175bfbe365236aa3e9e77d0d8057da32c3112a2b5b6fefc934c639c",
+        "evidence": "artifacts/local-test-infrastructure-suite.xml",
+        "log": "artifacts/local-test-infrastructure-suite.txt"
+      },
+      "lint": "Moved/new Python infrastructure passed ruff check and format --check",
+      "live_sessions": "No production tmux session was attached to, terminated, reconfigured or upgraded",
+      "source_audit": "No retired tmux-native or sibling Mosh test imports remain in active project source or installed integration helpers; no broken links in moved infrastructure; all pinned Termux source hashes match preserved provenance"
+    },
+    "unified_inventory": {
+      "date": "2026-09-30",
+      "artifacts": "artifacts/unified-inventory.lCgOMT",
+      "focused": {
+        "passed": 70,
+        "failed": 0,
+        "seconds": 15.42,
+        "report": "artifacts/unified-inventory.lCgOMT/focused.xml",
+        "log": "artifacts/unified-inventory.lCgOMT/focused.txt"
+      },
+      "integration": {
+        "passed": 42,
+        "failed": 0,
+        "seconds": 8.63,
+        "report": "artifacts/unified-inventory.lCgOMT/integration.xml",
+        "log": "artifacts/unified-inventory.lCgOMT/integration.txt"
+      },
+      "static": "Ruff check/format, JSON validation and git diff --check passed",
+      "live_inspection": "One 116-column table contains ten tmux clients, one detached session and three direct Mosh apps. All ten existing client PIDs were unchanged before/after; only metadata was read",
+      "changes": "Merged both tables with TYPE/SESSION/APP/APP PID and shared transport, state, reachability, terminal, Mosh PID, idle, peer, size and sizing columns. Active tmux pane apps resolve from foreground process groups rather than the original shell PID; detached apps remain visible",
+      "compatibility": "Original JSON arrays and client state meanings retained; entries is additive. Same current-user process snapshot reused without extra scans or polling. Unknown and not-applicable values remain explicit",
+      "activation": "Reporting applies through the existing helper symlink; no server, application, monitor or VM was restarted or reconfigured",
+      "limitations": "APP is a foreground process-group representative and can be a pipeline/wrapper; inaccessible or exited foreground processes remain unknown. Direct Mosh has no input idle timestamp or tmux sizing participation"
+    },
+    "standalone_mosh_inventory": {
+      "date": "2026-09-30",
+      "artifacts": "artifacts/standalone-mosh.IuT7ME",
+      "focused": {
+        "passed": 63,
+        "failed": 0,
+        "seconds": 14.90,
+        "report": "artifacts/standalone-mosh.IuT7ME/focused.xml",
+        "log": "artifacts/standalone-mosh.IuT7ME/focused.txt"
+      },
+      "integration": {
+        "passed": 42,
+        "failed": 0,
+        "seconds": 8.34,
+        "report": "artifacts/standalone-mosh.IuT7ME/integration.xml",
+        "log": "artifacts/standalone-mosh.IuT7ME/integration.txt"
+      },
+      "static": "Ruff check/format, JSON validation and both repositories' git diff --check passed",
+      "opsec_packaging": "12 tests passed; the source bundle includes mosh_sessions.py and verifies its bytes against the host source. No VM deployment or session restart was performed",
+      "scope": "Synthetic process trees and login records, private PTYs/HOME/tmux sockets, real stock Mosh on loopback with direct and tmux-hosted synthetic applications; existing client inventory and sizing regressions retained",
+      "live_inspection": "Read-only metadata found three previously omitted Mosh servers: two Fish foreground shells and one Codex process. Five Mosh clients on the selected tmux server were not duplicated. All ten existing client PIDs were unchanged; a single inventory call measured 0.056 seconds",
+      "activation": "Existing helper symlink loads the new module without rebuilding tmux, restarting sessions or adding a poller; the sizing monitor does not run standalone discovery",
+      "limitations": "Executable names are foreground process-group representatives, not full command lines. Inaccessible/reparented metadata and unavailable Mosh login records remain unknown. No exact network-contact or direct-app activity timestamp is claimed"
+    },
+    "client_inventory": {
+      "date": "2026-09-30",
+      "artifacts": "artifacts/client-inventory.Yb1chP",
+      "focused": {
+        "passed": 42,
+        "failed": 0,
+        "seconds": 13.07,
+        "report": "artifacts/client-inventory.Yb1chP/focused.xml",
+        "log": "artifacts/client-inventory.Yb1chP/focused-final.txt"
+      },
+      "integration": {
+        "passed": 42,
+        "failed": 0,
+        "seconds": 8.67,
+        "report": "artifacts/client-inventory.Yb1chP/integration.xml",
+        "log": "artifacts/client-inventory.Yb1chP/integration.txt",
+        "scope": "Existing native CLI, compatibility arguments and attachment hook tests"
+      },
+      "static": "Ruff check and format check, JSON validation and git diff --check passed",
+      "scope": "Private HOME/socket native tmux tests, real XFCE close action on isolated Xvfb/D-Bus, headless terminal input, and synthetic process ancestry/login records; existing Mosh sizing regression tests retained",
+      "fixes": "Include detached sessions and control clients; handle blank control-client dimensions; stop assuming orphaned ancestry is local; distinguish live attachment from Mosh reachability; show tmux activity age and explicit snapshot/socket scope",
+      "compatibility": "Existing JSON client state values and sizing snapshot return shape retained; new session/activity/frontend fields are additive; no Mosh protocol change or new poller",
+      "activation": "Installed helper symlink loads reporting changes immediately; production server, clients, programs and sizing monitor were not restarted or reconfigured",
+      "live_inspection": "Read-only inventory includes seven sessions, including detached poo; session IDs, attachment counts and all ten client PIDs are unchanged before/after. diet was reopened before inspection, so its earlier reported stale attachment was not reproduced",
+      "limitations": "IDLE is tmux activity age, not last network packet or time since detachment. Mosh last-contact timestamps remain unavailable. Ancestry identifies SSH in fixtures; no production SSH client was created. No live input, phone interaction or clipboard content was captured"
+    },
+    "diet_copy_incident": {
+      "date": "2026-09-30",
+      "artifacts": "/home/lewis/Dev/tmux-simple/artifacts/diet-copy-incident.xA6kJh",
+      "old_terminal_new_tmux": "Reproduced: Ctrl+C consumed by old XFCE; byte 03 did not reach the application",
+      "new_terminal_old_tmux": "Reproduced: byte 03 reached the application and COPY-SENT was observed, but no clipboard helper delivery occurred",
+      "new_terminal_new_tmux": "Passed actual XFCE keyboard and private X11 clipboard integration test",
+      "packaged_diet_codex": "Passed private transcript selection and explicit Ctrl+C with patched tmux using the same packaged 0.159.1 executable as diet",
+      "current_codex": "Passed the same regression with the current installed executable",
+      "static": "Ruff check, format check and git diff --check passed",
+      "fixture_notes": "GUI cases rerun serially after concurrent Xvfb interference; physical coordinates and copy-on-select=never ensure real selection; --no-daemon avoids packaging dependencies and background daemon leakage; preliminary failures retained",
+      "activation": "Deferred at user request: all seven production sessions retained on old 3.7c-simple1 server; provide terminal and shared-server restart steps"
+    },
+    "mosh_rx_status": {
+      "status": "Passed release-server receive-age, outage, reconnection, replay and API checks; installed for new Mosh connections",
+      "release": "/home/lewis/Dev/tmux-simple/build/mosh-release.doHv9X/src/frontend/mosh-server",
+      "release_sha256": "d630d3eb49a244a69140c86e5511d141af05742e38accf26230081e21fc80242",
+      "patch_sha256": "320c61a729ebce194ad3ab5de321d19e316c7ad5fe94188776c371737e18b5c6",
+      "header_sha256": "203422fd8ee0cbe3aedda03614571ad4e9250c575a97198c85b40e1559815ee8",
+      "local_tests": 133,
+      "opsec_bundle_tests": 12,
+      "junit": "artifacts/mosh-rx-status-tests.xml",
+      "phone_client_update_required": false,
+      "existing_user_sessions_restarted": false
+    },
+    "explicit_selection_copy": {
+      "date": "2026-09-30",
+      "status": "Passed focused regressions; installed simple3 binary and applied selection-only bindings to the existing server",
+      "release": "/home/lewis/Dev/tmux-simple/build/release.kjdlE2/tmux",
+      "release_sha256": "017b8405a31e04d934bcb92360b26a0b65004c96e0ecd1b5b94932da65464a15",
+      "patch": "patches/0004-explicit-selection-copy.patch",
+      "patch_sha256": "8e9407ddd664964f5d95b0ec137e6eafd6d0310618371c4be19a8aac8a27201a",
+      "config": "/home/lewis/Dev/config/tmux-simple/tmux.conf",
+      "config_sha256": "668a1a6c1c845fbbef006bc8d7643f13130037469fde97f5f320189b29a4fdd3",
+      "behavior": "Drag release, double-click and triple-click never copy. Ctrl+C copies an existing selection through copy-pipe-no-clear; without a selection it reaches the application. Other input still resumes the application",
+      "pre_fix_regression": "Private old simple2 server reproduced Ctrl+C dropping the selection and returning to live output before the copy-mode binding could execute",
+      "focused": {
+        "passed": 99,
+        "failed": 0,
+        "seconds": 113.51,
+        "report": "artifacts/explicit-selection-copy-tests.xml",
+        "files": [
+          "tests/test_interaction.py",
+          "tests/test_cli.py",
+          "tests/test_config.py",
+          "tests/test_attach_hooks.py",
+          "tests/test_application_clipboard.py"
+        ]
+      },
+      "coverage": "Private Termux/VTE emulators, legacy/CSI-u/modifyOtherKeys Ctrl+C, double/triple click, right-click, Enter/Ctrl+T/Ctrl+V without automatic copy, unchanged selection/viewport, isolated XFCE clipboard helpers and stock Mosh loopback with simulated packet loss",
+      "static": "Interaction tests pass Ruff check; both edited Python files pass format check; both working trees pass diff --check",
+      "activation": "Only six selection bindings loaded into the current simple1 server. Server and all pane IDs/PIDs verified unchanged; no live input, clipboard changes, session restart or VM deployment",
+      "evidence": [
+        "artifacts/explicit-selection-copy-bindings.conf",
+        "artifacts/explicit-selection-copy-server-before.txt",
+        "artifacts/explicit-selection-copy-server-after.txt",
+        "artifacts/explicit-selection-copy-panes-before.txt",
+        "artifacts/explicit-selection-copy-panes-after.txt"
+      ],
+      "remaining_activation": "Host simple1 and Pi-opsec simple2 servers intentionally retained. Both have selection-only bindings; full SSH/Mosh Ctrl+C support needs their respective servers restarted to load installed simple3",
+      "pi_opsec": {
+        "date": "2026-09-30",
+        "status": "Installed guest-native simple3 and exact host configuration; selection-only bindings applied to existing Pi server",
+        "release": "/home/qwen/.local/share/opsec/tmux-simple/releases/a7e42402ce2051ff3dc0",
+        "version": "tmux 3.7c-simple3",
+        "binary_sha256": "5be09cc121d044ffc168d0a774fb73b5f4f5d3ee214f9a9711c5e675ff9004e9",
+        "config_sha256": "668a1a6c1c845fbbef006bc8d7643f13130037469fde97f5f320189b29a4fdd3",
+        "artifacts": "artifacts/pi-opsec-simple3.YWekkU",
+        "packaging_tests": {
+          "passed": 12,
+          "failed": 0,
+          "file": "/home/lewis/tasks/opsec/tests/whonix/test_tmux_simple.py"
+        },
+        "verification": "Bundle and installed configuration hashes match host; all four C patches included and compiled against guest libc with cached development dependencies; installer verified bundled file hashes and version before switching symlinks",
+        "activation": "Only six selection bindings loaded into the existing simple2 server. Server PID 2473427 and pane PID 2473434 preserved; no session restart, input injection, clipboard read/write or network-policy change",
+        "remaining_activation": "After /quit in Pi, restart opsec-terminal-simple@pi-85ce9bb01a55.service and reconnect pi-opsec --workspace /workspace/money --continue to load simple3"
+      }
+    },
+    "mosh_cleanup": {
+      "date": "2026-09-30",
+      "status": "Installed one-shot tmux-mosh cleanup on host and Pi-opsec; no real session cleanup run",
+      "command": "tmux-mosh cleanup",
+      "default_cutoff_seconds": 30,
+      "options": [
+        "--dry-run",
+        "--older-than SECONDS",
+        "--json"
+      ],
+      "cleanup_sha256": "dda4ab4fa1822a25ee5760ca09dedc9625398a086ae21e0a9619fd5de53ad682",
+      "cli_sha256": "d7debaced318e3b4dc1054d5d1daa1ec701211de42db2412f70bc87b51e390e8",
+      "focused": {
+        "passed": 35,
+        "failed": 0,
+        "seconds": 12.09,
+        "report": "artifacts/mosh-cleanup-tests.xml"
+      },
+      "integration": {
+        "passed": 140,
+        "failed": 0,
+        "seconds": 22.89,
+        "report": "artifacts/mosh-cleanup-integration.xml"
+      },
+      "packaging": {
+        "passed": 12,
+        "failed": 0,
+        "file": "/home/lewis/tasks/opsec/tests/whonix/test_tmux_simple.py"
+      },
+      "safety": "Current-user Mosh executable filter; credential-verified receive timestamp; descriptor-pinned SIGTERM; process identity and packet-age rechecks; unavailable timestamps, process reuse/exits and reconnects are skipped; no SIGKILL or PID-only signal fallback",
+      "scope": "This user on this host, all tmux sockets and direct apps; independent of the selected tmux socket. No automatic watcher or attachment-triggered cleanup",
+      "release_tests": "Isolated real stock Mosh client and patched server on loopback: live packets are kept, outage reaches cutoff, dry run sends no signal, cleanup closes only the explicitly owned test server, tmux pane PID persists",
+      "development_failure": "First loopback cleanup run failed closed because the local Python build omits os.pidfd_open and signal.pidfd_send_signal. Kernel pidfd operations are now accessed through typed libc wrappers; subsequent 35 focused tests passed",
+      "static": "Ruff check/format passed for edited helper and tests; both repositories passed diff --check",
+      "host_preview": {
+        "closing": 0,
+        "would-close": 0,
+        "kept": 0,
+        "skipped": 8,
+        "error": 0
+      },
+      "pi_opsec": {
+        "release": "/home/qwen/.local/share/opsec/tmux-simple/releases/36a0f5a6bf4d6f2aebbd",
+        "version": "tmux 3.7c-simple3",
+        "binary_sha256": "6b6f2e63dfe4cf055f39a5b04723a8f06da77ba677bea1d5b8714421288f83ff",
+        "cleanup_sha256": "dda4ab4fa1822a25ee5760ca09dedc9625398a086ae21e0a9619fd5de53ad682",
+        "verification": "Helper/module hashes match host; new subcommand help and signal-free dry run work; existing server and pane PIDs unchanged"
+      },
+      "artifacts": "artifacts/mosh-cleanup-install.rjQDCv",
+      "activation": "Host helper symlink loads code immediately; full verified source bundle compiled and installed in guest without restarting existing sessions. Only metadata and dry runs inspected on real sessions; no input injection or clipboard capture",
+      "limitations": "Old servers without receive timestamps are skipped (eight in host preview). Direct Mosh apps may terminate. Signal loss and intentionally closing Termux are indistinguishable. A fresh packet can arrive after the final query and before SIGTERM; closing means requested, not confirmed process exit"
+    },
+    "mosh_cleanup_legacy": {
+      "date": "2026-09-30",
+      "status": "Installed opt-in legacy unreachable cleanup on host and pi-opsec; no real Mosh server signalled",
+      "command": "tmux-mosh cleanup --include-legacy",
+      "preview": "tmux-mosh cleanup --include-legacy --dry-run",
+      "default_behavior": "Verified packet-age cleanup stays unchanged; unavailable timestamps remain skipped without opt-in",
+      "legacy_policy": "Default 30s cutoff only; require unambiguous current Mosh login record verified against the live child PTY, server age >=30s, current-user/executable/start identity and a fresh UNREACHABLE recheck after pinning the PID; exact packet timestamps always take precedence",
+      "safety": "PID descriptor SIGTERM only; no SIGKILL or numeric-PID fallback; keep connected and skip unknown/ambiguous/new/changed/exited servers; never downgrade a failed final packet timestamp query to a coarse flag",
+      "limitations": "Legacy Mosh exposes a coarse client-update flag, not an authenticated packet timestamp; the flag can lag a reconnect. Client packet arrival and signalling remain non-atomic. Direct apps may terminate; tmux programs are not targeted",
+      "tests": {
+        "passed": 209,
+        "failed": 0,
+        "seconds": 44.78,
+        "report": "artifacts/mosh-cleanup-legacy-tests.xml",
+        "packaging_passed": 12
+      },
+      "release_tests": "Owned stock Mosh server + stock client on loopback, synthetic login record/start-age fixture, real PID-descriptor shutdown; connected kept, dry run signals nothing, only the owned fixture server closes, tmux pane survives; system utmp not edited",
+      "cleanup_sha256": "ff2187d61771cf056e63adde8d494fe598b7ae467fbaa910f1677e80844916c5",
+      "cli_sha256": "cb21be9223f0b41f221908de8812777fe76e288f7b31276ec6eb3841826e48de",
+      "host_preview": {
+        "closing": 0,
+        "would-close": 8,
+        "kept": 0,
+        "skipped": 0,
+        "error": 0
+      },
+      "pi_opsec": {
+        "release": "2367231321e9f8588736",
+        "version": "tmux 3.7c-simple3",
+        "cleanup_sha256": "ff2187d61771cf056e63adde8d494fe598b7ae467fbaa910f1677e80844916c5",
+        "cli_sha256": "cb21be9223f0b41f221908de8812777fe76e288f7b31276ec6eb3841826e48de"
+      },
+      "verification": "Host and guest source hashes match; guest subcommand help and signal-free preview pass; host and guest server/pane snapshots unchanged",
+      "static": "Ruff check and format check passed; repository diff --check passed",
+      "artifacts": "artifacts/mosh-legacy-cleanup.LW4gQL"
+    },
+    "via_labels": {
+      "date": "2026-09-30",
+      "status": "Installed lowercase VIA labels and local terminal PID labels on host and pi-opsec",
+      "display": [
+        "mosh",
+        "ssh",
+        "xfce4-terminal (PID)",
+        "other local terminal (PID)",
+        "detached",
+        "changing",
+        "unknown"
+      ],
+      "semantics": "Local PID belongs to the terminal ancestor, not the foreground app or tmux client. Remote labels stay ssh/mosh; Mosh server PID remains in its separate column",
+      "compatibility": "Existing uppercase transport/state JSON values retained; every unified entry adds the via display field; no new process scan or ancestry lookup",
+      "tests": {
+        "passed": 219,
+        "failed": 0,
+        "seconds": 44.86,
+        "packaging_passed": 12,
+        "report": "artifacts/mosh-via-label-tests.xml"
+      },
+      "coverage": "Aligned unified rows, local terminals and missing PID/frontend fallbacks, remote tmux and standalone Mosh/SSH, lowercase detached/changing, JSON compatibility, isolated real XFCE terminal PID, unchanged Mosh sizing/status/cleanup",
+      "pi_opsec": {
+        "release": "c4fc460e081f5667e1c1",
+        "version": "tmux 3.7c-simple3",
+        "cli_sha256": "3d472f413d9e927946d367befe95884af5493157a5ea053d56d79da95dd17b53"
+      },
+      "verification": "Host and guest source hashes match; guest formatter assertions and read-only inventory pass; host and guest pane/server snapshots unchanged; no real input, clipboard or cleanup operation performed",
+      "static": "Ruff check/format and both repository diff --check passed",
+      "artifacts": "artifacts/mosh-via-label.eAj19I"
+    },
+    "table_case": {
+      "date": "2026-09-30",
+      "status": "Lowercase all client-table values while retaining uppercase column headers; installed host and pi-opsec",
+      "examples": [
+        "tmux",
+        "direct",
+        "other-tmux",
+        "recent",
+        "unreachable",
+        "unknown"
+      ],
+      "compatibility": "Text display only: actual application/session names and structured JSON enum values unchanged. Cleanup, sizing and transport identity behavior unchanged",
+      "tests": {
+        "passed": 108,
+        "failed": 0,
+        "seconds": 27.16,
+        "packaging_passed": 12,
+        "report": "artifacts/mosh-table-case-tests.xml"
+      },
+      "coverage": "Uppercase headers, all rendered cells lowercase, mixed-case names/IPv6, unmodified snapshot and JSON, existing terminal PID labels and selection/cleanup inventory regressions",
+      "pi_opsec": {
+        "release": "b79d5601da9670e7bb0e",
+        "cli_sha256": "0dce190bc8d3d2d538b3a62d713c20d87ae24836d7696d6a85d74929aa2a6611"
+      },
+      "verification": "Host/guest hashes match and read-only tables satisfy casing rules; existing pane/server PIDs unchanged; no session restart or cleanup performed",
+      "static": "Ruff check/format and both repo diff --check passed",
+      "artifacts": "artifacts/mosh-table-case.3v0AuW"
+    },
+    "compact_inventory": {
+      "date": "2026-10-01",
+      "status": "Fold app/server PIDs into APP and VIA; remove dedicated APP PID, MOSH PID and LINK columns; installed host and pi-opsec",
+      "headers": [
+        "VIA",
+        "TYPE",
+        "SESSION",
+        "APP",
+        "TTY",
+        "IDLE",
+        "PEER",
+        "SIZE",
+        "SIZING"
+      ],
+      "examples": [
+        "codex (1234)",
+        "mosh (5678)",
+        "mosh (5678) [unreachable]"
+      ],
+      "semantics": "APP PID remains the foreground app; VIA PID remains the local terminal or Mosh server. Exact IDLE supersedes a separate coarse link column; retain inline recent/unreachable/unknown only when packet age is missing, never for a valid zero age",
+      "compatibility": "Raw app_pid, mosh_pid and reachability fields retained in JSON; via is a formatted label. Original names, structured enum values, cleanup and sizing unchanged; uppercase headers/lowercase rendered values retained",
+      "tests": {
+        "passed": 238,
+        "failed": 0,
+        "seconds": 46.72,
+        "packaging_passed": 12,
+        "report": "artifacts/mosh-compact-columns-tests.xml"
+      },
+      "coverage": "Nine-column alignment, app/server PID identity, missing/invalid PID fallbacks, coarse flag only when packet age unavailable, zero-age handling, JSON compatibility, real isolated XFCE and loopback Mosh, cleanup and sizing regressions",
+      "pi_opsec": {
+        "release": "f0086c3d145c94508e66",
+        "cli_sha256": "b6041fd67a78ad02cdc2d9b8e09bfa7fbf9554fcf462800c5329c6661970b8a1"
+      },
+      "verification": "Host/guest source hashes match; guest helper assertions and read-only compact table pass; existing host and guest pane/server snapshots unchanged. No real sessions closed or restarted",
+      "static": "Ruff check/format and both repositories diff --check passed",
+      "artifacts": "artifacts/mosh-compact-columns.RJHXnI"
+    },
+    "command_size": {
+      "date": "2026-10-01",
+      "status": "Installed command-line and direct-terminal size reporting on host and pi-opsec; focused and packaging tests pass; broad suite retains a Codex UI-expectation failure",
+      "headers": [
+        "VIA",
+        "TYPE",
+        "SESSION",
+        "APP",
+        "TTY",
+        "IDLE",
+        "PEER",
+        "SIZE",
+        "SIZING",
+        "COMMAND"
+      ],
+      "semantics": "COMMAND reads bounded current foreground argv with process-identity rechecks; default uses a compact basename/home-path view, available-width truncation and lowercase presentation. --verbose is untruncated; JSON preserves original case/quoting. SIZE is columns x rows: read-only owned-PTY geometry for direct Mosh/SSH and other-tmux, existing client dimensions for selected tmux attachments",
+      "safety": "Read-only/nonblocking/no-controlling-terminal/no-symlink PTY open, owner/type/device validation, no input reads or resizes, unknown geometry remains null. Cached argv/size reads reuse one process snapshot; no polling or process signals added. Commands can contain secrets",
+      "tests": {
+        "focused_passed": 132,
+        "focused_failed": 0,
+        "focused_seconds": 2.68,
+        "focused_report": "artifacts/mosh-command-size.0SkvS2/focused.xml",
+        "packaging_passed": 12,
+        "suite_passed": 385,
+        "suite_failed": 1,
+        "suite_seconds": 195.93,
+        "suite_report": "artifacts/mosh-command-size.0SkvS2/tests.xml",
+        "suite_failure": "tests/test_codex_clipboard.py::test_real_codex_transcript_selection_copies_without_a_desktop_environment waits for the old ctrl+c copy UI footer; fixture highlights text but that footer never appears. Codex/config/clipboard code not changed for this feature",
+        "retained_development_report": "artifacts/mosh-command-size.0SkvS2/focused-development.xml"
+      },
+      "coverage": "Foreground-versus-shell identity, per-app cache reuse, one process scan, PID/UID/executable changes, bounded reads, argument quoting and invalid UTF-8, column case/alignment/truncation/verbose/JSON, tty ownership/device/open flags/zero size/error descriptor cleanup, unchanged pending input and termios, isolated real Mosh and other-tmux PTYs including resize refresh, SSH metadata forwarding",
+      "pi_opsec": {
+        "release": "d065b5fe253f1019cde3",
+        "cli_sha256": "17e43fdc9661ee62fee3d0864677694fb0086939a01e2c75386c27f14963f599",
+        "mosh_sessions_sha256": "f1774d66e8c919888d8c5039110383654938ea4cb684e4fcd0ddc0dc2bf65277"
+      },
+      "preservation": "Host pane PIDs match before/after. Guest tmux server PID stayed running; guest pane PID changed during the deployment window, so app preservation is not asserted. Installer only requests systemd daemon-reload, not a session/server restart. Guest owned test PTY and argv/helper checks pass; source hashes match",
+      "static": "Ruff check/format and both repositories diff --check pass",
+      "artifacts": "artifacts/mosh-command-size.0SkvS2"
+    },
+    "opsec_viewers": {
+      "date": "2026-10-01",
+      "status": "Installed host VM-viewer types and authoritative VM session names on host and pi-opsec; focused and packaging tests pass",
+      "tests": {
+        "focused_passed": 329,
+        "failed": 0,
+        "report": "artifacts/opsec-viewers.k4qvOu/final-tests.xml",
+        "name_and_viewer_passed": 86,
+        "initial_detection_passed": 294,
+        "initial_report": "artifacts/opsec-viewers.k4qvOu/tests.xml"
+      },
+      "packaging": {
+        "passed": 12,
+        "failed": 0,
+        "report": "artifacts/opsec-viewers.k4qvOu/final-packaging-tests.log"
+      },
+      "coverage": "Fixed-route and foreground/UID/TTY/ancestry validation; local/SSH/Mosh/host-tmux viewer deduplication; actual guest SESSION in text/JSON while retaining raw host names; fixed-code JSON-input queries; owned existing SSH master validation and no-TCP fallback; timeout/failure/malformed/oversize handling; workspace aliases, explicit session IDs/targets, ambiguity/dead/foreign servers and bounded queries; inventory/argv/PTY/cleanup/sizing regressions",
+      "behavior": {
+        "host_detection": "One existing process snapshot; metadata only",
+        "session_lookup": "Only clients with VM viewers; one read-only SSH-master query with 2s timeout, at most 8 managed guest servers; no query in sizing monitor",
+        "unavailable": "Viewer remains listed with SESSION:- and a warning; no fabricated name or remote app PID"
+      },
+      "pi_opsec": {
+        "release": "1d82d8ccdf2d60519549",
+        "version": "tmux 3.7c-simple3",
+        "cli_sha256": "d5b29c8ef6cd0bcab110fe15262dbd59f085eb0e0c93f6312bfb529d37d027f0",
+        "viewer_sha256": "294b0c60e609559f6e51eff7098ed2d387fe5adae0051f88186d1ba204f16c5e",
+        "sessions": [
+          "pi-85ce9bb01a55"
+        ]
+      },
+      "preservation": {
+        "host_pane_pids_unchanged": true,
+        "guest_server_pid": 2528199,
+        "guest_pane_pid": 2590963,
+        "guest_pids_unchanged": true,
+        "no_live_network_scan_or_session_input": true
+      },
+      "static": "Ruff check/format and both repositories diff --check pass",
+      "artifacts": "artifacts/opsec-viewers.k4qvOu",
+      "scope": "Focused regressions only; no full-suite rerun. Prior broad-suite Codex footer expectation failure remains recorded under command_size"
+    },
+    "pi_app_labels": {
+      "date": "2026-10-01",
+      "status": "Installed Pi and pi-opsec APP labels on host and pi-opsec; focused and packaging tests pass",
+      "behavior": {
+        "local_pi": "Prefer a single owned live Pi descendant in the same foreground tty/process group over its waiting shell, with actual Pi PID",
+        "vm_pi": "Label verified Pi attachment requests pi-opsec; PID still belongs to host viewer",
+        "fallback": "Ordinary shells, ambiguous/unrelated/foreign/dead children and unverified commands are not guessed to be Pi",
+        "json": "app remains actual executable; app_label stores friendly label; command retains raw argv",
+        "compact": "Suppress empty padding from rewritten Pi title only in compact command view"
+      },
+      "tests": {
+        "passed": 382,
+        "failed": 0,
+        "report": "artifacts/pi-app-labels.EUyc2D/tests.xml",
+        "before_padding_passed": 375,
+        "before_padding_report": "artifacts/pi-app-labels.EUyc2D/before-title-padding.xml"
+      },
+      "coverage": "Runtime/title and CLI path recognition; literal quoting/empty args; foreground ownership/TTY/group/identity/ancestry/cycles/ambiguity; Pi versus waiting shell/tunnel helper; native attached/detached and direct Mosh/SSH Pi rows; VM Bash/Python/manual attachment labels and shell exclusions; raw JSON and accurate PIDs; compact padding without dropping real arguments; all selected inventory/command/size/cleanup/sizing regressions",
+      "packaging": {
+        "passed": 12,
+        "failed": 0,
+        "report": "artifacts/pi-app-labels.EUyc2D/packaging-tests.log"
+      },
+      "pi_opsec": {
+        "release": "a77c0c711b4b592191a1",
+        "version": "tmux 3.7c-simple3",
+        "cli_sha256": "37c1b46cc1f0d3b74e104d29f023358f0749a0c5cface5e0e7627d2a3c723ae0",
+        "guest_pi_label": "pi",
+        "guest_pi_pid": 2647384
+      },
+      "preservation": {
+        "existing_host_pane_pids_unchanged": true,
+        "guest_server_pid": 2528199,
+        "guest_pane_pid": 2647384,
+        "guest_pids_unchanged": true,
+        "new_host_session_observed": "dental",
+        "no_session_restart_or_input_injection": true
+      },
+      "static": "Ruff check/format and both repositories diff --check pass",
+      "artifacts": "artifacts/pi-app-labels.EUyc2D",
+      "scope": "Focused regressions only; no full-suite rerun or live network scan. Prior broad-suite Codex footer expectation failure remains recorded separately"
+    },
+    "copy_mode_resize_reflow": {
+      "date": "2026-10-01",
+      "version": "tmux 3.7c-simple4",
+      "status": "Reverted on 2026-10-02; retained as historical evidence only",
+      "release": "build/release.Jo19wd/tmux",
+      "release_sha256": "6cefef319f770c264459f776523ba85b468d7ed7ee3ab42d3976b0168662c83d",
+      "tests": {
+        "release_passed": 116,
+        "actual_codex_passed": 2,
+        "migration_passed": 10,
+        "guest_packaging_passed": 1,
+        "guest_private_resize_steps_passed": 5
+      },
+      "behavior": [
+        "Keep a semantic text anchor through repeated native wrapping and transcript replay",
+        "Refresh a resized unselected copy-mode snapshot after history replacement and synchronized frame completion",
+        "Preserve new selections and search views; never copy or exit copy mode during refresh",
+        "Remove the authenticated obsolete Pi-only hook from host and 24 guest runtimes"
+      ],
+      "preservation": {
+        "host_server_pid": 1766740,
+        "guest_server_pids": [
+          2188220,
+          2528199
+        ],
+        "servers_restarted": false,
+        "user_chats_used": false,
+        "prompts_submitted": false
+      },
+      "scope": "Focused private PTY/Termux/VTE/XFCE regressions, actual Pi SDK and installed Codex with synthetic saved history. Actual phone gestures remain a manual check after a new server is used.",
+      "artifacts": "artifacts/copy-reflow.f0COSf"
+    },
+    "resize_rollback": {
+      "date": "2026-10-02",
+      "version": "tmux 3.7c-simple5",
+      "release": "build/release.8JXfNE/tmux",
+      "release_sha256": "a96eed6ae2f9f0b613d2459e094312fd9db6400ecc52781ad826c460890fdb7a",
+      "reason": "User reproduced resize jumps without tmux/Mosh and requested normal resize behavior rather than workarounds",
+      "reverted": [
+        "Removed custom copy-mode reading anchors and synchronized transcript replay refresh",
+        "Archived the retired native patch and its workaround-specific tests",
+        "Retired Pi helper apply/check behavior: compatibility flags restore/check the original renderer instead of reinstalling the hook"
+      ],
+      "preserved": [
+        "Clipboard delivery and explicit Ctrl+C",
+        "Last-active-device sizing",
+        "Mosh-aware client participation",
+        "Ordinary SIGWINCH forwarding",
+        "Pi saved chats and unrelated runtime patches"
+      ],
+      "tests": {
+        "host_passed": 501,
+        "pi_migration_and_packaging_passed": 12
+      },
+      "native_source_verification": "window-copy.c, input.c and tmux.h match the first five patches exactly; guest and host source hashes are identical",
+      "pi_verification": {
+        "host_original_renderer": true,
+        "guest_original_renderers": 24,
+        "guest_obsolete_helpers": 0
+      },
+      "guest_release": "577a46a1b9629651022e",
+      "guest_release_sha256": "3e959701de57e184ad752ea9605bf6c1fa2551e9c8a17f8bee885277afb79df8",
+      "active_servers": "Left running: host simple3 already predates the workaround; guest money simple4 requires a deliberate restart",
+      "scope": "Private temporary PTY/Termux/VTE/XFCE regressions and filesystem inspection only; no live conversation input, inference requests, network scan or server restart",
+      "artifacts": "artifacts/resize-rollback.ZaK3pn"
+    },
+    "reading_position": {
+      "date": "2026-10-02T02:34:12+01:00",
+      "status": "installed; activation requires a new server",
+      "version": "tmux 3.7c-simple6",
+      "release": "build/release.i83rfa/tmux",
+      "release_sha256": "db8d77414e676c7bf3d8055cc2cafd677a9b9d9c7e8ca2597372d7ae7823f8dc",
+      "patch": "patches/0007-reading-position.patch",
+      "patch_sha256": "9d1a1554d69aba6bcaaa368a1c3ec71f2523fd987b85adf526fab9a6cd3a9d52",
+      "behavior": "Retain the logical text at the top of scrolled-up copy mode through consecutive width/height changes, including a temporary oversized viewport. Selection and explicit Ctrl+C preserve the anchor; scrolling updates it. Keep native live-bottom behavior.",
+      "scope": "Only window-copy.c and configure.ac change. No parser/snapshot replay hook, Pi/Codex renderer change, config change, Mosh change or background work.",
+      "preserved": [
+        "Clipboard delivery and explicit copying",
+        "Last-active-device sizing",
+        "Patches 0001 through 0006",
+        "Canonical host/guest configuration",
+        "All existing host and guest sessions"
+      ],
+      "tests": {
+        "installed_host": {
+          "passed": 177,
+          "report": "artifacts/reading-position.JYBijA/installed-regress.xml",
+          "log": "artifacts/reading-position.JYBijA/installed-regress.log"
+        },
+        "focused_subset": {
+          "passed": 23,
+          "included_in_host_total": true,
+          "report": "artifacts/reading-position.JYBijA/final2-reading.xml"
+        },
+        "guest_installer": {
+          "passed": 19,
+          "log": "artifacts/reading-position.JYBijA/guest-installer-tests.log"
+        },
+        "guest_packaging": {
+          "passed": 2,
+          "log": "artifacts/reading-position.JYBijA/guest-packaging-tests.log"
+        },
+        "static": "Targeted Ruff check/format and both repositories diff --check passed; original patches/config checksums unchanged"
+      },
+      "guest": {
+        "release": "1596c6ac49362e17259e",
+        "version": "tmux 3.7c-simple6",
+        "binary_sha256": "897fdc4fcae9c45e96b09011456eb1fc3753c8614f7bac4f5a5affeec7b09c13",
+        "config_sha256": "0ed01262ae87e7ab52bf210c276e52adaa1a0a641d3c018f4faafc1ff2f88920",
+        "source_matches_host": true,
+        "receipt": "artifacts/reading-position.JYBijA/guest-receipt.json"
+      },
+      "running_servers": {
+        "host": {
+          "pid": 1766740,
+          "version": "tmux 3.7c-simple3",
+          "restarted": false
+        },
+        "guest": {
+          "pid": 2943900,
+          "version": "tmux 3.7c-simple5",
+          "restarted": false
+        },
+        "evidence": [
+          "artifacts/reading-position.JYBijA/host-after.txt",
+          "artifacts/reading-position.JYBijA/guest-after.txt"
+        ]
+      },
+      "verification_scope": "Private PTY/emulator/Xvfb and loopback fixtures only. Existing guest connection used for installation and read-only build/PID checks; no live conversation input, model request, network scan or user server restart.",
+      "limitations": [
+        "The patch controls tmux-owned copy mode, not terminal/application-owned scrolling.",
+        "Native Unicode reflow may adjust exact character wrap boundaries.",
+        "History browsing remains shared between viewers.",
+        "Real phone gestures and valuable application interaction were not tested.",
+        "Reattaching or reloading configuration cannot update a running server binary."
+      ],
+      "development_failures": [
+        "Baseline reproduction, socket-path fixture correction, emulator row/boundary assertions, first compile error, anchor invalidation on copy, and staged-vs-installed CLI fixture failures are retained with explanations in RESULTS.md."
+      ],
+      "artifacts": "artifacts/reading-position.JYBijA"
+    },
+    "fork_only": {
+      "status": "Passed",
+      "package_policy": {
+        "distro_mosh_removed": true,
+        "distro_tmux_absent": true,
+        "running_sessions_stopped": false,
+        "phone_client_changed": false
+      },
+      "reference_policy": "tmux and both Mosh variants use approved project runtime links, never PATH or distro command aliases",
+      "color_policy": "Mosh red background unless positively verified as the latest approved variant; unknown remains null in JSON",
+      "command_links": [
+        "~/.local/bin/tmux",
+        "~/.local/bin/mosh",
+        "~/.local/bin/mosh-client",
+        "~/.local/bin/mosh-server"
+      ],
+      "reused_compatibility_release": "build/mosh-release.doHv9X",
+      "tests": {
+        "focused_policy_cli_and_table": 154,
+        "isolated_transport": 143,
+        "native_compatibility": 1,
+        "legacy_cleanup_repeat": 2
+      },
+      "static": [
+        "shellcheck and shfmt on changed shell scripts passed",
+        "Ruff checks and formatting passed; pre-existing native test path-bootstrap import explicitly exempted from E402"
+      ],
+      "artifact": "artifacts/fork-only.Afy3Rz"
+    },
+    "client_tree": {
+      "checked_at_utc": "2026-10-03T12:50:05Z",
+      "artifact_directory": "/home/lewis/Dev/tmux-simple/artifacts/tree-direct-children.c1jb0p",
+      "implementation": "client_tree.py + tmux_clients.py CLI dispatcher",
+      "default": "read-only expanded fsx-style tmux, VM and standalone parent/transport-child tree with populated parent connection counts and no VIEWER column",
+      "snapshot_modes": [
+        "--once expanded tree",
+        "redirected output expanded tree",
+        "--flat legacy table",
+        "--json unchanged schema"
+      ],
+      "behavior": [
+        "One foreground app and attachment count per selected tmux session",
+        "Expandable XFCE/Mosh/SSH viewer rows with IDLE/PEER/SIZE/SIZING",
+        "Detached sessions stay visible with zero connections",
+        "Verified VM viewer groups keyed by guest socket and session",
+        "Every standalone session has its own top-level type/app parent and a single Mosh/SSH transport child with aligned connection details",
+        "Fold and selection identity survive background inventory refresh",
+        "Display-cell-aware clipping prevents wrapped rows",
+        "Existing red-background build warnings retained",
+        "Mouse reporting and terminal modes restored on quit, Escape, Ctrl+C, SIGHUP and SIGTERM",
+        "All initial and newly discovered groups start expanded; manual folds survive refresh",
+        "Host and VM viewer tree labels float beneath their parent type; direct connections retain type/app columns and connection details stay aligned",
+        "Group expand/collapse markers stay before TYPE; fsx-style box-drawing children branch beneath the parent type",
+        "Marker and row clicks toggle groups; parent columns stay fixed when folded",
+        "One nonselectable blank display line follows each expanded child list in live and snapshot views; collapsed groups do not add spacing",
+        "Mouse clicks and viewport/page scrolling account for spacer lines while row selection and connection counts remain unchanged",
+        "VIEWER column removed from live and snapshot trees without changing JSON or the legacy flat table",
+        "opsec-tmux groups use the same frontend-only child branches as host tmux; launcher app/PIDs appear once on the parent",
+        "Host-tmux VM viewers retain an inline guest destination with separate frontend and guest-server red build warnings",
+        "No other-connections wrapper; standalone groups use the same parent/transport-child structure as tmux and VM groups",
+        "Standalone parents stay visible when transport children are folded; separate sessions are never merged by app name or PID",
+        "CONNS shows one on each direct-session parent, attachment totals on tmux/VM parents and zero on detached tmux parents; children do not duplicate counts",
+        "Transport PID/TTY-based standalone identities preserve fold and selection across foreground app changes, with distinct parent/child keys"
+      ],
+      "tests": {
+        "focused_passed": 278,
+        "ruff_check": "passed",
+        "ruff_format": "passed",
+        "diff_check": "passed",
+        "scope": "Synthetic snapshots, private PTYs/tmux sockets and isolated XFCE/Xvfb; no user sessions restarted or modified",
+        "report": "/home/lewis/Dev/tmux-simple/artifacts/tree-direct-children.c1jb0p/direct-children-final.xml"
+      },
+      "runtime": {
+        "tmux_rebuilt": false,
+        "mosh_rebuilt": false,
+        "configuration_changed": false,
+        "server_restart_required": false
+      },
+      "remaining_manual_check": "User can verify the new tree in their existing desktop/phone terminals; physical terminals were not driven",
+      "columns": [
+        "TYPE",
+        "SESSION",
+        "APP",
+        "CONNS",
+        "IDLE",
+        "PEER",
+        "SIZE",
+        "SIZING"
+      ],
+      "connection_details": [
+        "type",
+        "app",
+        "idle",
+        "peer",
+        "size",
+        "sizing"
+      ],
+      "details_layout": "Parent type/app/CONNS with frontend child branches; child IDLE/PEER/SIZE/SIZING remain aligned and SESSION is - when unknown"
+    },
+    "publication": {
+      "repository": "https://github.com/Terrydaktal/tmux",
+      "branch": "main",
+      "tests": {
+        "passed": 826,
+        "failed": 0,
+        "seconds": 299.90,
+        "scope": "isolated terminal/loopback/synthetic tests",
+        "excluded": [
+          "tests/test_codex_clipboard.py: legacy selection-owning Codex UI fixture, not the current terminal-owned-selection UI"
+        ]
+      },
+      "network_or_vm_live_tests": false,
+      "servers_restarted": false
+    }
   },
   "manual_gaps": [
     "Actual Termux Android swipe, selection menu, clipboard permission and keyboard animation",
@@ -421,6 +1314,6 @@
     "Long-duration sessions, real cellular roaming and arbitrary resize/application interleavings",
     "Independent viewer history positions are not supported; the pane's scroll/selection state is shared",
     "Actual desktop file-handler launch and visible file-manager selection: tests validate the requested target and selection URI with isolated recorders",
-    "Actual phone loss/reconnection and foreground/background behavior for Mosh sizing: regression tests use synthetic process/login metadata with real private tmux clients; live sessions have not been modified"
+    "Actual phone loss/reconnection and foreground/background behavior for Mosh sizing remain manual checks; isolated synthetic metadata and stock-Mosh loopback were tested, while the live server received only integration activation without input tests"
   ]
 }

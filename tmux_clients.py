@@ -1445,7 +1445,33 @@ def format_sizing(row):
 
 
 def show_clients(server, as_json=False, *, verbose=False, once=False, flat=False):
-    show_clients_flat(server, as_json, verbose=verbose)
+    if as_json or flat:
+        show_clients_flat(server, as_json, verbose=verbose)
+        return
+    import client_tree
+
+    result = inventory(server)
+    interactive = (
+        not once
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+        and os.environ.get("TERM", "dumb") != "dumb"
+    )
+    if interactive:
+        try:
+            client_tree.watch(lambda: inventory(server), result)
+            return
+        except client_tree.curses.error:
+            print(
+                "Interactive display unavailable; showing a snapshot.", file=sys.stderr
+            )
+    color = (
+        sys.stdout.isatty()
+        and os.environ.get("TERM") != "dumb"
+        and "NO_COLOR" not in os.environ
+    )
+    width = shutil.get_terminal_size().columns if sys.stdout.isatty() else None
+    client_tree.print_snapshot(result, width=width, color=color)
 
 
 def show_clients_flat(server, as_json=False, *, verbose=False):
