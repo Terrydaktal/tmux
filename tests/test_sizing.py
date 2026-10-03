@@ -13,9 +13,7 @@ def test_active_phone_uses_full_height_after_keyboard_closes(backend, via_mosh):
             remote = mosh.Session(
                 backend.socket.parent,
                 "termux",
-                program=backend.cli("attach", "test", "--existing"),
-                client="/usr/bin/mosh-client",
-                server="/usr/bin/mosh-server",
+                program=backend.cli("attach-session", "-t", "=test"),
             )
             phone = remote.attachment
         else:

@@ -13,7 +13,10 @@ import tmux_clients as clients
 
 def cli(backend, *args):
     return subprocess.run(
-        backend.cli("clients", *args), env=backend.env, capture_output=True, timeout=6
+        backend.mosh_cli("clients", *args),
+        env=backend.env,
+        capture_output=True,
+        timeout=6,
     )
 
 
@@ -22,7 +25,12 @@ def test_clients_command_does_not_start_a_server(backend):
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["clients"] == []
     assert not backend.socket.exists()
-    assert cli(backend, "--manage-sizing").returncode == 1
+    assert (
+        subprocess.run(
+            backend.mosh_cli("start"), env=backend.env, capture_output=True, timeout=6
+        ).returncode
+        == 1
+    )
     assert not backend.socket.exists()
 
 
@@ -161,16 +169,13 @@ def test_process_lookup_failure_does_not_forget_owned_flags(terminals):
     assert not server.snapshot()[1]
 
 
-@pytest.mark.parametrize("action", [("clients", "--json"), ("clients",), ("list",)])
-def test_inventory_enables_monitor_by_default_and_is_singleton(
-    terminals, backend, action
-):
+def test_explicit_monitor_start_is_singleton(terminals, backend):
     desktop, _, server, _ = terminals
     assert not backend.socket.with_suffix(".sizing.lock").exists()
     pane_pid = backend.field("pane_pid")
     try:
         enabled = subprocess.run(
-            backend.cli(*action), env=backend.env, capture_output=True, timeout=6
+            backend.mosh_cli("start"), env=backend.env, capture_output=True, timeout=6
         )
         assert enabled.returncode == 0, enabled.stderr
         server.snapshot()
@@ -183,8 +188,8 @@ def test_inventory_enables_monitor_by_default_and_is_singleton(
         )
         identity = server.watcher
         assert not clients.start_monitor(server)
-        for options in [("--json",), ("--manage-sizing", "--json")]:
-            result = cli(backend, *options)
+        for _ in range(2):
+            result = cli(backend, "--json")
             assert result.returncode == 0, result.stderr
             status = json.loads(result.stdout)
             assert status["monitor_running"]
@@ -208,9 +213,13 @@ def test_inventory_survives_monitor_start_failure(terminals, backend):
     target = backend.socket.parent / "do-not-touch"
     target.write_text("keep")
     backend.socket.with_suffix(".sizing.lock").symlink_to(target)
+    start = subprocess.run(
+        backend.mosh_cli("start"), env=backend.env, capture_output=True, timeout=6
+    )
+    assert start.returncode == 1
+    assert b"tmux-mosh:" in start.stderr
     result = cli(backend, "--json")
     assert result.returncode == 0, result.stderr
-    assert b"Warning: Mosh sizing monitor unavailable:" in result.stderr
     status = json.loads(result.stdout)
     assert len(status["clients"]) == 2
     assert not status["monitor_running"]
