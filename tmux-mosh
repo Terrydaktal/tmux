@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""Mosh inventory, explicit stale-session cleanup and tmux sizing."""
+
+import subprocess
+import sys
+
+from tmux_clients import MonitorError, public_main
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(public_main())
+    except (MonitorError, OSError, subprocess.SubprocessError) as exc:
+        print(f"tmux-mosh: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
