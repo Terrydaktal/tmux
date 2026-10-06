@@ -23,6 +23,13 @@ while data := os.read(0, 4096):
     if data == b"H":
         os.write(1, b"".join(f"history-{i:04d}\r\n".encode() for i in range(300)))
         os.write(1, b"HISTORY-END\r\n")
+    elif data == b"C":
+        rows = []
+        styles = ("\x1b[1;33m", "\x1b[3m", "\x1b[4m", "\x1b[36m")
+        for index in range(600):
+            text = f"ROW-{index:05d} " + "abcdefghij " * (index % 15)
+            rows.append(f"{styles[index % len(styles)]}{text}\x1b[0m\r\n")
+        os.write(1, ("".join(rows) + "COLORED-HISTORY-END\r\n").encode())
     elif data == b"A":
         os.write(1, b"\x1b[?1049h\x1b[?1002h\x1b[?1006h\x1b[HCLICK-HEADER")
     elif data == b"a":
