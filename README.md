@@ -86,8 +86,8 @@ touch/clipboard UI behaviour remains a manual check.
 
 ### Reliable Clipboard Delivery
 
-The clipboard fix is isolated in `patches/0002-reliable-clipboard-delivery.patch`,
-after the `scroll-on-input` option introduced by patch 0001. It changes copy-pipe
+The clipboard fix lives in `src/window-copy.c`, alongside the native
+`scroll-on-input` integration. It changes copy-pipe
 delivery, not the renderer or Mosh protocol.
 
 Before the fix:
@@ -141,7 +141,7 @@ is a tmux-wrapped OSC 52 write: unrestricted passthrough is disabled, and the in
 VTE does not implement OSC 52 writes even if they reach it. Pi uses ordinary OSC 52.
 Neither path used to invoke tmux's desktop `copy-command` helper.
 
-`0003-application-clipboard-delivery.patch` handles ordinary OSC 52 and exactly one
+The application clipboard handler in `src/input.c` handles ordinary OSC 52 and exactly one
 tmux-wrapped clipboard write when `scroll-on-input` is enabled. It sends explicit
 `52;c;` directly to the most recently active, writable viewer of the source pane,
 and pipes the same decoded text to `copy-command` using that viewer's session
@@ -158,7 +158,7 @@ Applications using other tmux clipboard commands retain their existing behavior.
 The release identifies itself as `tmux 3.7c-simple6`. A running old server does not
 load a new executable by reattaching or reloading config. Test on a fresh server
 before deliberately retiring any existing sessions; rebuilding never kills them.
-Patch 0004 keeps Ctrl+C in copy mode when a selection exists; otherwise the
+The input handler in `src/server-client.c` keeps Ctrl+C in copy mode when a selection exists; otherwise the
 scroll-on-input path would discard it before the configured copy binding ran.
 Other keyboard input still resumes the application. Changing the mouse bindings
 alone disables automatic copying on old servers, but the SSH/Mosh Ctrl+C binding
@@ -181,7 +181,7 @@ changes while other sessions still contain work.
 
 ## Reading Position On Resize
 
-While browsing history, patch 0007 retains the logical text position at the top
+While browsing history, `src/window-copy.c` retains the logical text position at the top
 of the visible copy-mode viewport through width and height changes. Consecutive
 resizes reuse that position rather than following the copy cursor or drifting
 by a wrapped line. Scrolling or navigation establishes a new position. The view
@@ -460,7 +460,7 @@ TTYs, frontend PIDs and build dates are not added back to the text view.
   `auto-off` or `manual-off` means ignored automatically or manually. `shared`
   means the `smallest`/`largest` policy combines eligible viewers; `manual` means
   an explicitly set window size. `-` means not applicable. Older running servers
-  without patch `0005-active-sizing-reporting.patch` show `unknown` for eligible
+  without native active-sizing reporting show `unknown` for eligible
   viewers, with a diagnostic in JSON's `note` field; installing the binary does
   not restart existing sessions.
   The report is read-only and does not itself change sizing ownership or policy.
@@ -624,19 +624,18 @@ tmux-simple/
   tmux-simple.conf              Symlink to ../config/tmux-simple/tmux.conf
   pyproject.toml                Local uv test dependencies and tooling settings
   uv.lock                       Locked Python test dependencies
-  patches/
-    0001-scroll-on-input.patch  Nonmodal input option and patched version tag
-    0002-reliable-clipboard-delivery.patch  Selecting-client clipboard fix
-    0003-application-clipboard-delivery.patch  Application OSC 52 + desktop helper
-    0004-explicit-selection-copy.patch  Preserve a selection for explicit Ctrl+C
-    0005-active-sizing-reporting.patch  Report which viewer controls the size
-    0006-native-resize-behavior.patch  Identify the native-resize rollback release
-    0007-reading-position.patch  Keep the visible history text anchored on resize
+  src/                         Maintained tmux 3.7c fork source and upstream notices
+    window-copy.c              History, reading anchors and clipboard copying
+    server-client.c            Nonmodal input and explicit Ctrl+C selection handling
+    input.c                    Application OSC 52 and desktop clipboard helper
+    format.c, resize.c, tmux.h  Active-device sizing and ownership reporting
+    configure.ac, Makefile.am   Native build definitions; no patch replay
   mosh/
     last-received.patch         Expose the existing server receive timestamp
     server-status.h             Private, nonblocking Unix socket status reply
   scripts/
-    build.sh                    Verify archive, apply patches, compile, link runtime
+    build.sh                    Snapshot repository source, compile, link runtime
+    source-snapshot.sh          Working-tree files -> isolated source and hash manifests
     build-mosh.sh               Verify upstream Mosh, apply status patch, build release
     link.sh                     Link tmux, tmux-mosh, helpers and the Mosh fork commands
     clipboard.sh                Selection on stdin -> available desktop clipboard
@@ -692,12 +691,19 @@ scripts/link.sh
 bash ../config/tmux-simple/link.sh
 ```
 
-Build inputs are the pinned tmux 3.7c archive and numbered patches, applied in
-filename order. Requires compiler, make, autoconf, automake, pkg-config,
-ncurses/libevent development files, curl, tar and patch. Output is a fresh
-`build/release.XXXXXX/tmux` and SHA-256 manifest. Only a successful build changes
+Build inputs are the maintained source under `src/`, including current working-tree
+edits. There is no upstream download or tmux patch replay. Requires compiler, make,
+autoconf, automake, pkg-config, ncurses/libevent development files, Git and tar.
+Output is a fresh `build/release.XXXXXX/src/tmux`, its source-file manifest,
+source checksums and binary checksums. Only a successful build changes
 `build/runtime/tmux`. Runtime uses Bash, Python 3.12+ standard library, the built
 binary, and optionally `wl-copy`/`xclip` for desktop clipboard delivery.
+
+Set `BUILD_RUNTIME=/absolute/directory` to publish a verification build somewhere
+other than the normal runtime links. Source snapshots exclude ignored build and
+test artifacts but include new source files and edits not yet committed. The
+separate compatibility Mosh build still uses its pinned upstream archive and
+standalone status patch; it does not modify this tmux source.
 
 The installer symlinks `~/.local/bin/tmux` directly to `build/runtime/tmux`, adds
 `~/.local/bin/tmux-mosh`, and links clipboard/attachment helpers and integration
