@@ -71,6 +71,8 @@ survive reboot or a policy killing user processes on logout.
   passes those keys. Mouse-aware applications keep their own clicks and wheel.
 - Drag selects using tmux, with a neutral reversed-text highlight. Release only
   stops selecting: it does not copy, clear the selection, or jump down.
+- Ctrl+drag selects a rectangular box. Ordinary dragging switches back to linear
+  selection. Mouse-aware applications retain their own Ctrl+drag gestures.
 - Double-click selects a word; triple-click selects a line. Neither copies.
 - Ctrl+C explicitly copies selected text without clearing it or moving the
   viewport. The copy-mode binding works over SSH/Mosh without XFCE integration.
@@ -155,7 +157,7 @@ this handler. General passthrough remains disabled. No clipboard reads, terminal
 library replacement, Codex changes or VM clipboard-read permission are added.
 Applications using other tmux clipboard commands retain their existing behavior.
 
-The release identifies itself as `tmux 3.7c-simple6`. A running old server does not
+The release identifies itself as `tmux 3.7c-simple7`. A running old server does not
 load a new executable by reattaching or reloading config. Test on a fresh server
 before deliberately retiring any existing sessions; rebuilding never kills them.
 The input handler in `src/server-client.c` keeps Ctrl+C in copy mode when a selection exists; otherwise the
@@ -178,6 +180,20 @@ run `tmux display-message -p '#{version}'`. After saving work in every session,
 stop that server with `tmux kill-server`, then create the session from a newly
 launched XFCE process. Never stop the shared server merely to test clipboard
 changes while other sessions still contain work.
+
+## Rectangular Selection
+
+Ctrl+left-drag enables tmux's rectangular selection at the shell and in non-mouse-aware
+applications. Release freezes the box without copying; Ctrl+C copies explicitly.
+Ordinary dragging and word/line selection return to linear selection.
+
+The copy implementation in `src/window-copy.c` fixes copying a released box. The original copy code inferred its width
+from the cursor and the currently dragged endpoint. Once selection stopped, it
+could copy only one column or the wrong columns after moving the cursor. It now
+uses the stored corners and includes the highlighted edge cells, in either drag
+direction. Both the Ctrl+C binding and XFCE's direct tmux copy command use this
+path, without moving the viewport or restarting the application. Existing servers
+need a deliberate restart to load the native fix; reloading bindings is not enough.
 
 ## Reading Position On Resize
 
@@ -625,7 +641,7 @@ tmux-simple/
   pyproject.toml                Local uv test dependencies and tooling settings
   uv.lock                       Locked Python test dependencies
   src/                         Maintained tmux 3.7c fork source and upstream notices
-    window-copy.c              History, reading anchors and clipboard copying
+    window-copy.c              History, reading anchors, rectangle and clipboard copying
     server-client.c            Nonmodal input and explicit Ctrl+C selection handling
     input.c                    Application OSC 52 and desktop clipboard helper
     format.c, resize.c, tmux.h  Active-device sizing and ownership reporting

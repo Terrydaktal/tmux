@@ -21,7 +21,7 @@ def cli(backend, *args, **kwargs):
 
 def test_entrypoint_is_the_binary_and_version_does_not_start_server(backend):
     assert backend.entrypoint.resolve() == Path(backend.binary).resolve()
-    assert cli(backend, "-V").stdout == b"tmux 3.7c-simple6\n"
+    assert cli(backend, "-V").stdout == b"tmux 3.7c-simple7\n"
     assert not backend.socket.exists()
 
 

@@ -5408,7 +5408,7 @@ window_copy_get_selection(struct window_mode_entry *wme, size_t *len)
 	char				*buf;
 	size_t				 off;
 	u_int				 i, xx, yy, sx, sy, ex, ey, ey_last;
-	u_int				 firstsx, lastex, restex, restsx, selx;
+	u_int				 firstsx, lastex, restex, restsx;
 	int				 keys;
 
 	if (data->screen.sel == NULL && data->lineflag == LINE_SEL_NONE) {
@@ -5462,31 +5462,15 @@ window_copy_get_selection(struct window_mode_entry *wme, size_t *len)
 	keys = options_get_number(wp->window->options, "mode-keys");
 	if (data->rectflag) {
 		/*
-		 * Need to ignore the column with the cursor in it, which for
-		 * rectangular copy means knowing which side the cursor is on.
+		 * Copy the highlighted columns from the stored corners. The
+		 * cursor can move after stop-selection without changing the box.
 		 */
-		if (data->cursordrag == CURSORDRAG_ENDSEL)
-			selx = data->selx;
-		else
-			selx = data->endselx;
-		if (selx < data->cx) {
-			/* Selection start is on the left. */
-			if (keys == MODEKEY_EMACS) {
-				lastex = data->cx;
-				restex = data->cx;
-			}
-			else {
-				lastex = data->cx + 1;
-				restex = data->cx + 1;
-			}
-			firstsx = selx;
-			restsx = selx;
+		if (data->selx < data->endselx) {
+			firstsx = restsx = data->selx;
+			lastex = restex = data->endselx + 1;
 		} else {
-			/* Cursor is on the left. */
-			lastex = selx + 1;
-			restex = selx + 1;
-			firstsx = data->cx;
-			restsx = data->cx;
+			firstsx = restsx = data->endselx;
+			lastex = restex = data->selx + 1;
 		}
 	} else {
 		if (keys == MODEKEY_EMACS)

@@ -23,6 +23,15 @@ while data := os.read(0, 4096):
     if data == b"H":
         os.write(1, b"".join(f"history-{i:04d}\r\n".encode() for i in range(300)))
         os.write(1, b"HISTORY-END\r\n")
+    elif data == b"B":
+        os.write(
+            1,
+            (
+                "\x1b[H\x1b[2Jprefix \u4e2d\u6587 one tail\r\n"
+                "prefix \u4e2d\u6587 two tail\r\n"
+                "prefix \u4e2d\u6587 three tail\r\nBOX-READY\r\n"
+            ).encode(),
+        )
     elif data == b"C":
         rows = []
         styles = ("\x1b[1;33m", "\x1b[3m", "\x1b[4m", "\x1b[36m")
