@@ -1,0 +1,11 @@
+{
+  "id": "RECTANGULAR-SELECTION",
+  "owner": "tmux fork maintainers",
+  "title": "Copy frozen rectangular selections from their stored corners",
+  "observable_contract": "A released rectangular selection copies exactly its highlighted cells in either drag direction, even after the cursor moves. Ordinary drag/word/line selection remains linear, and copying preserves the selection and viewport.",
+  "test_files": [
+    "tests/test_rectangle_selection.py"
+  ],
+  "manual_limits": "",
+  "result_policy": "Test reports describe a particular artifact and run; no historical pass is asserted here."
+}
