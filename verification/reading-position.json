@@ -1,0 +1,12 @@
+{
+  "id": "READING-POSITION",
+  "owner": "tmux fork maintainers",
+  "title": "Preserve the retained-history reading position during resize",
+  "observable_contract": "While browsing retained history, width/height resize bursts preserve the logical top-of-view anchor instead of replacing it with the cursor position. Scrolling establishes a new anchor; selecting/copying preserves it. Returning to the live tail retains native behavior, and tiny or oversized viewports remain bounded.",
+  "test_files": [
+    "tests/test_reading_position.py",
+    "tests/test_native_resize.py"
+  ],
+  "manual_limits": "",
+  "result_policy": "Test reports describe a particular artifact and run; no historical pass is asserted here."
+}
