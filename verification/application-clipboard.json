@@ -1,0 +1,14 @@
+{
+  "id": "APPLICATION-CLIPBOARD",
+  "owner": "tmux fork maintainers",
+  "title": "Deliver application clipboard writes to the attached viewer",
+  "observable_contract": "Application-owned OSC 52 clipboard writes reach the interacting terminal and its configured desktop helper. Plain and write-only tmux-wrapped requests share the same policy checks; clipboard reads and general passthrough remain disabled. A desktop viewer attaching to a remotely started session supplies the display environment, and a phone with no display variables does not clear that access.",
+  "test_files": [
+    "tests/test_application_clipboard.py",
+    "tests/test_attach_hooks.py",
+    "tests/test_config.py",
+    "tests/test_repo_paths.py"
+  ],
+  "manual_limits": "Real XFCE tests run under a private Xvfb/D-Bus display. VM clipboard permissions and physical phone clipboard behavior remain separate deployment checks.",
+  "result_policy": "Test reports describe a particular artifact and run; no historical pass is asserted here."
+}
