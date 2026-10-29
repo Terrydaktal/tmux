@@ -1227,6 +1227,19 @@ server_client_key_callback(struct cmdq_item *item, void *data)
 		cmd_find_from_client(&fs, c, 0);
 	wp = fs.wp;
 
+	/* Resume on input, except Ctrl+C copying an existing selection. */
+	key0 = key & (KEYC_MASK_KEY|KEYC_MASK_MODIFIERS);
+	if (wp != NULL && (~c->flags & CLIENT_READONLY) &&
+	    options_get_number(s->options, "scroll-on-input") &&
+	    !KEYC_IS_MOUSE(key) && key != KEYC_FOCUS_IN &&
+	    key != KEYC_FOCUS_OUT &&
+	    key0 != (KEYC_PPAGE|KEYC_SHIFT) &&
+	    key0 != (KEYC_NPAGE|KEYC_SHIFT) &&
+	    (wme = TAILQ_FIRST(&wp->modes)) != NULL &&
+	    wme->mode == &window_copy_mode &&
+	    (key0 != ('c'|KEYC_CTRL) || wme->screen->sel == NULL))
+		window_pane_reset_mode(wp);
+
 	/* Forward mouse keys if disabled. */
 	if (KEYC_IS_MOUSE(key) && !options_get_number(s->options, "mouse"))
 		goto forward_key;

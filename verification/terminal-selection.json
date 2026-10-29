@@ -1,0 +1,16 @@
+{
+  "id": "TERMINAL-SELECTION",
+  "owner": "tmux fork maintainers",
+  "title": "Use terminal-style history and explicit clipboard copying",
+  "observable_contract": "Typing and paste leave retained history and reach the application unchanged. Dragging, releasing, word selection and line selection only highlight; Ctrl+C explicitly copies an existing selection while preserving it and the reading position. With no selection, Ctrl+C keeps its normal interrupt behavior.",
+  "test_files": [
+    "tests/test_cli.py",
+    "tests/test_compat_cli.py",
+    "tests/test_interaction.py",
+    "tests/test_scroll_redraw.py",
+    "tests/test_hyperlinks.py",
+    "tests/test_codex_clipboard.py"
+  ],
+  "manual_limits": "Physical Termux gesture/clipboard UI and desktop clipboard permissions require manual device checks. The real-Codex adapter requires TEST_CODEX to name a compatible local build; generic terminal-copy coverage does not depend on it.",
+  "result_policy": "Test reports describe a particular artifact and run; no historical pass is asserted here."
+}

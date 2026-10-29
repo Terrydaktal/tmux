@@ -764,6 +764,13 @@ const struct options_table_entry options_table[] = {
 		  "the prompt area width."
 	},
 
+	{ .name = "scroll-on-input",
+	  .type = OPTIONS_TABLE_FLAG,
+	  .scope = OPTIONS_TABLE_SESSION,
+	  .default_num = 0,
+	  .text = "Leave copy mode on typing or paste and deliver input to the pane."
+	},
+
 	{ .name = "mouse",
 	  .type = OPTIONS_TABLE_FLAG,
 	  .scope = OPTIONS_TABLE_SESSION,
