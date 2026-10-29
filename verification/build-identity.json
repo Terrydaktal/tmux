@@ -1,0 +1,13 @@
+{
+  "id": "BUILD-IDENTITY",
+  "owner": "tmux fork maintainers",
+  "title": "Identify source revisions and individual builds",
+  "observable_contract": "Each new first-parent source commit advances the source revision. Rebuilding unchanged source leaves that revision stable and reserves a fresh numeric build ID, starting at zero. Matching source exports retain matching source fingerprints even when host and phone have different local build numbers.",
+  "test_files": [
+    "tests/test_build_identity.py",
+    "tests/test_fork_version.py",
+    "tests/test_source_build.py"
+  ],
+  "manual_limits": "",
+  "result_policy": "Test reports describe a particular artifact and run; no historical pass is asserted here."
+}

@@ -1,0 +1,12 @@
+{
+  "product": "tmux",
+  "upstream": "tmux 3.7c",
+  "upstream_commit": "e476c1230b958df0cb12977517d24b3dc931375b",
+  "inventory": "verification/*.json",
+  "policy": "Contracts and test references are current; run-specific results and historical evidence are stored under ignored artifacts/.",
+  "manual_limits": [
+    "Physical Termux gestures/keyboard UI",
+    "Real remote/VM deployments",
+    "Clipboard permission policy outside isolated displays"
+  ]
+}

@@ -1,6 +1,6 @@
 # configure.ac
 
-AC_INIT([tmux], 3.7c)
+AC_INIT([tmux], m4_esyscmd_s([cat BUILD-VERSION 2>/dev/null || cat FORK-VERSION]))
 AC_PREREQ([2.60])
 
 AC_CONFIG_AUX_DIR(etc)

@@ -1,0 +1,15 @@
+{
+  "id": "NATIVE-BUILD",
+  "owner": "tmux fork maintainers",
+  "title": "Build and verify tracked native source",
+  "observable_contract": "Build snapshots compile the repository's maintained source directly. A failed build leaves the published binary untouched; symlink installation refuses foreign destinations. Upstream notices, tests, tools and assets retain their original repository-root paths.",
+  "test_files": [
+    "tests/test_source_build.py",
+    "tests/test_native_resize.py",
+    "tests/test_test_infrastructure.py",
+    "tests/test_vte_history_readout.py",
+    "tests/test_verification_inventory.py"
+  ],
+  "manual_limits": "",
+  "result_policy": "Test reports describe a particular artifact and run; no historical pass is asserted here."
+}
