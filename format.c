@@ -834,6 +834,20 @@ format_cb_window_active_clients_list(struct format_tree *ft)
 	return (value);
 }
 
+/* Callback for window_size_client_pid. */
+static void *
+format_cb_window_size_client_pid(struct format_tree *ft)
+{
+	struct client	*c;
+	char		*value;
+
+	if (ft->wl == NULL)
+		return (NULL);
+	c = window_size_client(ft->wl->window);
+	xasprintf(&value, "%ld", c != NULL ? (long)c->pid : 0L);
+	return (value);
+}
+
 /* Callback for window_layout. */
 static void *
 format_cb_window_layout(struct format_tree *ft)
@@ -3745,6 +3759,9 @@ static const struct format_table_entry format_table[] = {
 	},
 	{ "window_silence_flag", FORMAT_TABLE_STRING,
 	  format_cb_window_silence_flag
+	},
+	{ "window_size_client_pid", FORMAT_TABLE_STRING,
+	  format_cb_window_size_client_pid
 	},
 	{ "window_stack_index", FORMAT_TABLE_STRING,
 	  format_cb_window_stack_index

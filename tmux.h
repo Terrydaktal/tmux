@@ -3151,6 +3151,7 @@ enum prompt_type status_prompt_type(const char *type);
 
 /* resize.c */
 void	 resize_window(struct window *, u_int, u_int, int, int);
+struct client *window_size_client(struct window *);
 void	 default_window_size(struct client *, struct session *, struct window *,
 	     u_int *, u_int *, u_int *, u_int *, int);
 void	 recalculate_size(struct window *, int);

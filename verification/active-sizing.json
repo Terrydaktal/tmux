@@ -1,0 +1,12 @@
+{
+  "id": "ACTIVE-SIZING",
+  "owner": "tmux fork maintainers",
+  "title": "Report which attached viewer controls window sizing",
+  "observable_contract": "Native formats report the viewer that actually controls latest-client window sizing, rather than inferring ownership from coincidentally matching dimensions. Eligible active/standby viewers, ignored clients and manual/shared sizing policies remain distinguishable; reporting does not start a transport monitor.",
+  "test_files": [
+    "tests/test_active_sizing.py",
+    "tests/test_sizing.py"
+  ],
+  "manual_limits": "",
+  "result_policy": "Test reports describe a particular artifact and run; no historical pass is asserted here."
+}
